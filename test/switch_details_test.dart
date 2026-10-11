@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nspanel_app/cards/env.dart';
+import 'package:nspanel_app/cards/fan_sheet.dart';
+import 'package:nspanel_app/cards/light_sheet.dart';
 import 'package:nspanel_app/cards/switch_card.dart';
 import 'package:nspanel_app/config/settings.dart';
 import 'package:nspanel_app/ha/connection.dart';
@@ -56,12 +58,14 @@ Future<(FakeHa, HaStates)> mount(
   Map<String, dynamic> attributes = const {},
   Map<String, dynamic> config = const {},
   bool refuses = false,
+  Map<String, Map<String, dynamic>> extraStates = const {},
 }) async {
   tester.view.physicalSize = const Size(480, 480);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final seed = {
+    ...extraStates,
     entity: st(entity, state, {'friendly_name': 'Test entity', ...attributes}),
   };
   final fake = refuses ? RefusingHa(seed) : FakeHa(seed);
@@ -112,6 +116,175 @@ Future<void> open(WidgetTester tester) async {
 }
 
 void main() {
+  for (final listForm in [false, true]) {
+    testWidgets(
+      'detail target routes hold to fan but tap to switch (list=$listForm)',
+      (t) async {
+        final item = {
+          'entity': 'switch.test',
+          'detail_entity': ' fan.speed ',
+          'name': 'Test entity',
+        };
+        final (fake, states) = await mount(
+          t,
+          config: listForm
+              ? {
+                  'switches': [item],
+                }
+              : {'detail_entity': ' fan.speed '},
+          extraStates: {
+            'fan.speed': st('fan.speed', 'on', {
+              'supported_features': 17,
+              'percentage': 40,
+              'percentage_step': 20,
+            }),
+          },
+        );
+        await open(t);
+        expect(find.byType(FanSheet), findsOneWidget);
+        expect(find.text('40%'), findsOneWidget);
+        expect(fake.calls, isEmpty);
+        states.update(
+          'fan.speed',
+          const HaState(
+            entityId: 'fan.speed',
+            state: 'on',
+            attributes: {
+              'supported_features': 17,
+              'percentage': 60,
+              'percentage_step': 20,
+            },
+          ),
+        );
+        await t.pump();
+        expect(find.text('60%'), findsOneWidget);
+        await t.tap(find.byKey(const ValueKey('sheet-increase')));
+        await t.pump();
+        expect(fake.calls, [
+          'fan.set_percentage {"entity_id":"fan.speed","percentage":80}',
+        ]);
+        await t.tap(find.byKey(const ValueKey('sheet-close')));
+        await t.pumpAndSettle();
+        await t.tap(find.text('Test entity'));
+        await t.pump();
+        expect(
+          fake.calls.last,
+          'homeassistant.turn_on {"entity_id":"switch.test"}',
+        );
+        expect(find.byType(ControlSheet), findsNothing);
+        await t.pump(const Duration(seconds: 2));
+      },
+    );
+  }
+
+  testWidgets(
+    'missing detail target never falls back to operating the switch',
+    (t) async {
+      final (fake, _) = await mount(
+        t,
+        config: {'detail_entity': 'fan.missing'},
+      );
+      await open(t);
+      expect(find.byType(FanSheet), findsOneWidget);
+      expect(
+        t.widget<ControlSheet>(find.byType(ControlSheet)).enabled,
+        isFalse,
+      );
+      expect(
+        t.widget<ControlSheet>(find.byType(ControlSheet)).state,
+        'Unavailable',
+      );
+      expect(fake.calls, isEmpty);
+      await t.tap(find.byKey(const ValueKey('sheet-close')));
+      await t.pumpAndSettle();
+      expect(fake.calls, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'unavailable detail target disables fan actions and follows recovery',
+    (t) async {
+      final (fake, states) = await mount(
+        t,
+        config: {'detail_entity': 'fan.speed'},
+        extraStates: {
+          'fan.speed': st('fan.speed', 'unavailable', {
+            'supported_features': 17,
+            'percentage': 40,
+          }),
+        },
+      );
+      await open(t);
+      await t.tap(find.byKey(const ValueKey('sheet-increase')));
+      await t.pump();
+      expect(fake.calls, isEmpty);
+      expect(
+        t.widget<ControlSheet>(find.byType(ControlSheet)).enabled,
+        isFalse,
+      );
+      states.update(
+        'fan.speed',
+        const HaState(
+          entityId: 'fan.speed',
+          state: 'on',
+          attributes: {'supported_features': 17, 'percentage': 60},
+        ),
+      );
+      await t.pump();
+      expect(t.widget<ControlSheet>(find.byType(ControlSheet)).enabled, isTrue);
+      expect(find.text('60%'), findsOneWidget);
+    },
+  );
+
+  testWidgets('detail target respects disabled holds and horizontal swipes', (
+    t,
+  ) async {
+    final (fake, _) = await mount(
+      t,
+      config: {'detail_entity': 'fan.speed', 'more_info': false},
+    );
+    await t.longPress(find.text('Test entity'));
+    await t.pumpAndSettle();
+    expect(find.byType(ControlSheet), findsNothing);
+    await t.drag(find.text('Test entity'), const Offset(-420, 0));
+    await t.pumpAndSettle();
+    expect(find.text('Next page').hitTestable(), findsOneWidget);
+    expect(fake.calls, isEmpty);
+  });
+
+  testWidgets('explicit light target uses the existing light sheet', (t) async {
+    final (fake, _) = await mount(
+      t,
+      config: {'detail_entity': 'light.detail'},
+      extraStates: {
+        'light.detail': st('light.detail', 'off', {
+          'supported_color_modes': ['onoff'],
+        }),
+      },
+    );
+    await open(t);
+    expect(find.byType(LightSheet), findsOneWidget);
+    await t.tap(find.text('Turn on'));
+    await t.pumpAndSettle();
+    expect(fake.calls, ['light.turn_on {"entity_id":"light.detail"}']);
+  });
+
+  for (final target in ['', '   ', 12]) {
+    testWidgets(
+      'empty or non-string detail target uses original entity ($target)',
+      (t) async {
+        final (fake, _) = await mount(t, config: {'detail_entity': target});
+        await open(t);
+        expect(find.byType(FanSheet), findsNothing);
+        await t.tap(find.text('Turn on'));
+        await t.pumpAndSettle();
+        expect(fake.calls, [
+          'homeassistant.turn_on {"entity_id":"switch.test"}',
+        ]);
+      },
+    );
+  }
+
   for (final domain in ['switch', 'input_boolean', 'light']) {
     testWidgets(
       '$domain: hold and close never toggle; explicit action sends one command',

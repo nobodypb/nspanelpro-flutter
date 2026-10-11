@@ -50,6 +50,11 @@ class _Sw {
   _Sw(this.item);
   final CardConfig item;
   String get entity => item['entity'].toString();
+  String get detailEntity {
+    final value = item['detail_entity'];
+    return value is String && value.trim().isNotEmpty ? value.trim() : entity;
+  }
+
   bool? local;
   int revision = 0;
   DateTime localUntil = DateTime.fromMillisecondsSinceEpoch(0);
@@ -67,6 +72,7 @@ class _SwitchCardState extends State<SwitchCard> {
               ? [
                   {
                     'entity': c['entity'],
+                    'detail_entity': c['detail_entity'],
                     'name': c.str('title') ?? c.str('name'),
                     'icon': c['icon'],
                   },
@@ -162,22 +168,23 @@ class _SwitchCardState extends State<SwitchCard> {
   }
 
   void _details(_Sw sw) {
-    if (sw.entity.startsWith('fan.')) {
-      _fanDetails(sw);
-      return;
-    }
     if (!c.boolOr('more_info', true)) return;
+    final entity = sw.detailEntity;
     final config = <String, dynamic>{
-      'entity': sw.entity,
+      'entity': entity,
       'name': sw.item.str('name'),
       'accent': c['accent'],
       'on_text': c['on_text'],
       'off_text': c['off_text'],
       'echo_ms': c['echo_ms'],
     };
+    if (entity.startsWith('fan.')) {
+      showFanSheet(context, config, widget.env);
+      return;
+    }
     showControlSheetBuilder(
       context,
-      (_) => sw.entity.startsWith('light.')
+      (_) => entity.startsWith('light.')
           ? LightSheet(config: config, env: widget.env)
           : SwitchSheet(config: config, env: widget.env),
     );

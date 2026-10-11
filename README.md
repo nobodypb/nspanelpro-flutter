@@ -93,21 +93,34 @@ the dialog's actions. Oscillation and direction are not exposed here.
 A short fan tap uses its supported `fan.turn_on` or `fan.turn_off` action,
 with state confirmed by HA. If that action is unsupported, it opens details
 instead (or does nothing with `more_info: false`). For devices whose power switch
-and fan are separate entities, keep the power switch and add a fan tile:
+and fan are separate entities, keep the power switch as the tile entity and give
+its long-press an explicit `detail_entity`:
 
 ```yaml
 type: custom:nspanel-switch-card
 more_info: true
 switches:
   - entity: switch.extractor_power
-    name: Extractor power
-  - entity: fan.extractor
-    name: Extractor speed
+    detail_entity: fan.extractor
+    name: Extractor
+    icon: mdi:fan
 ```
 
-There is no automatic linking or replacement of the power switch. Web cards
-continue to use Home Assistant's existing more-info dialog; this native dialog
-adds no new YAML fields or web bundle dependency.
+The short tap, tile state and availability still use `entity`; only long-press
+uses `detail_entity`. The target domain selects the native fan, light or generic
+switch detail sheet. Missing/unavailable targets show unavailable details and
+never silently redirect commands to the power switch. Opening/closing sends no
+command. `more_info: false` still disables long-press details. Empty or non-string
+`detail_entity` values fall back to `entity`; whitespace around an ID is trimmed.
+For the single-entity shorthand, put `detail_entity` beside `entity` on the card;
+for a grid, configure it per entry in `switches`. No device relationship is inferred.
+You can still use separate power and fan tiles instead. A direct fan tile's
+unsupported short-tap power fallback continues to open that fan's own controls.
+
+The matching web-card update honours `detail_entity` using HA's existing
+more-info dialog; older web bundles ignore it and show the original entity.
+This optional routing extension uses the combined fan/light/switch dialogs; the
+original fan feature remains available independently.
 
 The camera card is a doorbell or a driveway as a still, asked for at the card's own size and
 replaced about once a second - and only while its page is the one showing and the
