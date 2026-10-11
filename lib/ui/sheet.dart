@@ -101,6 +101,8 @@ class ControlSheet extends StatefulWidget {
     this.stepValue,
     this.body,
     this.stateColor = Ns.muted,
+    this.verticalPadding = SheetMetrics.padding,
+    this.verticalGap = SheetMetrics.gap,
   });
 
   final bool showLevel, enabled;
@@ -115,6 +117,7 @@ class ControlSheet extends StatefulWidget {
   final double Function(double, int)? stepValue;
   final Widget? body;
   final Color stateColor;
+  final double verticalPadding, verticalGap;
 
   @override
   State<ControlSheet> createState() => _SheetState();
@@ -162,7 +165,10 @@ class _SheetState extends State<ControlSheet> {
       color: Colors.transparent,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(SheetMetrics.padding),
+          padding: EdgeInsets.symmetric(
+            horizontal: SheetMetrics.padding,
+            vertical: widget.verticalPadding,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -204,7 +210,7 @@ class _SheetState extends State<ControlSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: SheetMetrics.gap),
+              SizedBox(height: widget.verticalGap),
               if (widget.body != null)
                 Expanded(child: widget.body!)
               else if (!widget.showLevel)
@@ -367,7 +373,7 @@ class _SheetState extends State<ControlSheet> {
                   ),
                 ),
               if (widget.actions.isNotEmpty) ...[
-                const SizedBox(height: SheetMetrics.gap),
+                SizedBox(height: widget.verticalGap),
                 SizedBox(
                   height: SheetMetrics.actionHeight,
                   child: Row(

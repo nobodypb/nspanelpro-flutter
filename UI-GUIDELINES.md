@@ -148,3 +148,27 @@ actual targets at the intended viewport; a large glyph alone does not establish
 a large target. Disabled targets are visibly subdued and must not forward a tap
 to the dashboard. Keep feedback governed by the panel's existing settings.
 
+
+### Light dialog extension (NSP-004)
+
+Light sheets keep horizontal padding 16, radius 20 tracks, radius 18 buttons,
+56px Close and 76px actions. Vertical padding is 12 and gaps above/below the body
+are 8, making the body **308px** high at 480×480. Other sheets keep their existing
+288px bodies. The right step column stays 96px wide; each button grows to 147px.
+Within the remaining 338px use one brightness track, two 162px tracks for TW, or
+three 103⅓px tracks for hue/saturation/brightness, with 14px gaps.
+
+Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs,
+or circular thumbs. A full-width horizontal light line with a 1px dark edge marks
+each position (2px inner line; 4px for the selected `last_used` target). Colour is
+a preview, not selection or success. Only brightness has embedded percentage text.
+For that text, clip a second copy to the filled region and choose `ground` or
+`text` according to contrast against the solid target colour; the unfilled region
+uses `text` on `surface`. This replaces the dark backing box for light tracks.
+Colour gradients and brightness target fill use full opacity, independently of
+category/action accents. Existing card `follow_color` and explicit accents remain.
+
+Effects and light presets use the same two-column 220×76 chooser convention as
+fans, with fixed Back and Close. Configured effects are explicitly checked against
+capabilities and selection has a check mark. Semantic slider names, values and
+increase/decrease actions are retained even though the visual scales are absent.

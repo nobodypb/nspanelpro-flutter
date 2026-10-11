@@ -535,7 +535,7 @@ void main() {
   );
 
   testWidgets(
-    'fan and existing light sheet share actual 480px hitboxes and geometry',
+    'fan keeps its geometry while light gains height without shrinking controls',
     (t) async {
       final (fake, states, conn) = await mount(
         t,
@@ -594,13 +594,17 @@ void main() {
       await t.pump();
       await t.longPress(find.text('Test light'));
       await t.pumpAndSettle();
-      expect(geometry(), fanGeometry);
+      final lightGeometry = geometry();
+      expect(lightGeometry['close']!.size, const Size(56, 56));
+      expect(lightGeometry['level']!.size, const Size(338, 308));
+      expect(lightGeometry['increase']!.size, const Size(96, 147));
+      expect(lightGeometry['decrease']!.size, const Size(96, 147));
       final actions = t
           .widgetList<SheetButton>(find.byType(SheetButton))
-          .where((b) => ['Low', 'Mid', 'Full', 'Turn off'].contains(b.label));
-      expect(actions.length, 4);
+          .where((b) => ['Presets', 'Turn off'].contains(b.label));
+      expect(actions.length, 2);
       for (final action in actions) {
-        expect(t.getSize(find.byWidget(action)), const Size(106, 76));
+        expect(t.getSize(find.byWidget(action)), const Size(220, 76));
       }
       expect(fake.calls, isEmpty);
       await close(t);
