@@ -1,4 +1,4 @@
-package nl.mennovanhout.nspanel_app.intercom
+package local.nspanel.doorbird
 
 /** ITU G.711 mu-law; no containers, 8000 mono samples/second on the wire. */
 object MuLaw {

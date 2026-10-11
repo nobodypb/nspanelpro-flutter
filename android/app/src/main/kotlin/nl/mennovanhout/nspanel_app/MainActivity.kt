@@ -30,7 +30,6 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private var intercom: nl.mennovanhout.nspanel_app.intercom.IntercomPlugin? = null
     private lateinit var touchGuard: WakeTouchGuard
     private var displayEvents: EventChannel.EventSink? = null
     private var saverVisible = false
@@ -98,7 +97,6 @@ class MainActivity : FlutterActivity() {
         if (!::touchGuard.isInitialized) return
         val on = power.isInteractive
         val wentOff = touchGuard.interactive && !on
-        if (!on) intercom?.screenOff()
         if (touchGuard.screen(on)) cancelTouch()
         else if (wentOff) {
             fingers = 0
@@ -153,7 +151,6 @@ class MainActivity : FlutterActivity() {
 
     override fun onPause() {
         super.onPause()
-        intercom?.background()
         val generation = ++lifecycleGeneration
         // SCREEN_OFF and onPause may arrive in either order. Sleeping our own
         // activity must keep the sensor alive; another foreground app must not.
@@ -167,12 +164,6 @@ class MainActivity : FlutterActivity() {
                 emitDisplay("lifecycle")
             }
         }, 200)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // Permission prompts may pause us, but leaving the activity must always stop media.
-        intercom?.stopped()
     }
 
     private var proximityListener: SensorEventListener? = null
@@ -240,7 +231,6 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        intercom = nl.mennovanhout.nspanel_app.intercom.IntercomPlugin(this, flutterEngine)
         loadTick() // ahead of the first touch, which would otherwise be silent
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         EventChannel(messenger, "nl.mennovanhout.nspanel/displayEvents").setStreamHandler(
@@ -389,12 +379,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        if (intercom?.permission(requestCode, grantResults) != true) super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
     override fun onDestroy() {
-        intercom?.dispose(); intercom = null
         awakeHold.update(false, false, false)
         lifecycleGeneration++
         displayHandler.removeCallbacksAndMessages(null)

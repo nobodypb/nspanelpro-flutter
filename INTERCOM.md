@@ -23,7 +23,7 @@ The probe uses pinned Media3 1.4.1 (matching the existing audio dependency) for
 video-only RTSP/TCP, and DoorBird HTTP audio with short-lived sessions obtained
 over certificate-pinned HTTPS. Audio stays in the LAN. AEC3 and noise reduction
 run locally through WebRTC APM, built from verified source archives; see
-`vendor/audio-processing/README.md`. Media3 logging is disabled because RTSP
+`packages/doorbird_intercom/vendor/audio-processing/README.md`. Media3 logging is disabled because RTSP
 errors can contain credential-bearing URIs. Only typed errors and counters
 cross the Flutter channel. Media is never recorded.
 
@@ -46,3 +46,9 @@ It did not disable the panel web server or modify other applications' routing.
 Persistent provisioning and reboot acceptance remain open until the physical
 media gate passes. The app itself never edits firewall rules. Unexpected audio
 content types are rejected before any bytes reach the speaker.
+
+The implementation is isolated as a local plugin and host adapter. See
+[LOCAL-EXTENSIONS.md](LOCAL-EXTENSIONS.md) for contracts and the upstream update
+workflow. Private profiles are owned by the adapter; host HA settings only expose
+a generic provisioning hook. Use `LocalExtensions.clearSettings()` for a full
+local reset including private profiles.

@@ -10,7 +10,7 @@ import 'package:flutter/services.dart' show appFlavor;
 import 'package:path_provider/path_provider.dart';
 
 import 'audio/announcer.dart';
-import 'intercom/intercom.dart';
+import 'local/extensions.dart';
 import 'cards/env.dart';
 import 'cards/registry.dart';
 import 'mqtt/bridge.dart';
@@ -85,7 +85,7 @@ class _ShellState extends State<Shell> {
     super.initState();
     // A pushed setup.json wins over whatever is stored, then is gone. An
     // `--ez setup true` launch extra opens the setup screen, for adb.
-    Settings.consumeSetupFile()
+    Settings.consumeSetupFile(onLocalSettings: LocalExtensions.provision)
         .then((_) => Settings.load())
         .then(
           (s) async => (
@@ -207,19 +207,7 @@ class _DashboardState extends State<Dashboard> {
   late final HaStates _states = HaStates();
   late final HaConnection _conn;
   late final PanelEnv _env;
-  late final IntercomController _intercom;
-  VoidCallback? _releaseIntercomDisplay, _releaseIntercomNavigation;
-  void _intercomBusy(bool busy) {
-    if (busy) {
-      _releaseIntercomDisplay ??= widget.display.controller.hold();
-      _releaseIntercomNavigation ??= _navigation.hold();
-    } else {
-      _releaseIntercomDisplay?.call();
-      _releaseIntercomDisplay = null;
-      _releaseIntercomNavigation?.call();
-      _releaseIntercomNavigation = null;
-    }
-  }
+  late final LocalExtensions _extensions;
 
   List<PanelPage> _pages = const [];
   PagerOptions _pager = const PagerOptions();
@@ -276,19 +264,19 @@ class _DashboardState extends State<Dashboard> {
       token: widget.settings.token,
       states: _states,
     );
-    _intercom = IntercomController(
-      NativeIntercomTransport(),
-      onBusy: _intercomBusy,
-      beforeOpen: () => _announcer.stop(),
+    _extensions = LocalExtensions(
+      holdDisplay: widget.display.controller.hold,
+      holdNavigation: _navigation.hold,
+      beforeMedia: () => _announcer.stop(),
     );
     _env = PanelEnv(
       states: _states,
       conn: _conn,
       settings: widget.settings,
       play: (ref) {
-        if (!_intercom.inUse) _announcer.play(ref);
+        if (!_extensions.ownsAudio) _announcer.play(ref);
       },
-      intercom: _intercom,
+      cameraInteraction: _extensions.camera,
       navigation: _navigation,
     );
 
@@ -383,10 +371,10 @@ class _DashboardState extends State<Dashboard> {
           on ? widget.display.controller.sleep(force: true) : _wake(),
       onPage: _navigation.navigate,
       onSay: (text) {
-        if (!_intercom.inUse) _announcer.say(text);
+        if (!_extensions.ownsAudio) _announcer.say(text);
       },
       onPlay: (ref) {
-        if (!_intercom.inUse) _announcer.play(ref);
+        if (!_extensions.ownsAudio) _announcer.play(ref);
       },
       onStop: _announcer.stop,
       onWake: _wake,
@@ -594,7 +582,7 @@ class _DashboardState extends State<Dashboard> {
     _proxAlways?.cancel();
     _lightSub?.cancel();
     _mqtt?.dispose();
-    _intercom.dispose();
+    _extensions.dispose();
     _announcer.dispose();
     _navigationEvents?.cancel();
     _navigation.dispose();

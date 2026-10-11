@@ -1,5 +1,5 @@
 import '../util/navigation_controller.dart';
-import '../intercom/intercom.dart';
+import '../extensions/camera_interaction.dart';
 import '../config/settings.dart';
 import '../ha/connection.dart';
 import '../ha/states.dart';
@@ -12,10 +12,10 @@ class PanelEnv {
     required this.settings,
     this.play,
     this.navigation,
-    this.intercom,
+    this.cameraInteraction,
   });
   final PanelNavigation? navigation;
-  final IntercomController? intercom;
+  final CameraInteraction? cameraInteraction;
   final HaStates states;
   final HaConnection conn;
   final Settings settings;

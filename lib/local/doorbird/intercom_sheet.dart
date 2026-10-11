@@ -2,25 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../cards/env.dart';
-import '../ui/sheet.dart';
-import '../ui/theme.dart';
-import 'intercom.dart';
+import '../../ui/sheet.dart';
+import '../../ui/theme.dart';
+
+import 'package:doorbird_intercom/doorbird_intercom.dart';
 
 /// Media feasibility UI. Door/IR actions are deliberately absent until the
 /// real duplex-audio acceptance gate has passed.
 Future<void> showIntercomProbe(
   BuildContext context,
-  PanelEnv env,
-  String profileName,
+  IntercomController controller,
+  Map<String, dynamic> profile,
   String title,
 ) async {
-  final controller = env.intercom;
-  if (controller == null || controller.inUse) return;
-  final raw = env.settings.intercomProfiles?[profileName];
-  final profile = raw is Map
-      ? Map<String, dynamic>.from(raw)
-      : <String, dynamic>{};
+  if (controller.inUse) return;
   unawaited(controller.open(profile));
   try {
     await showControlSheetBuilder(

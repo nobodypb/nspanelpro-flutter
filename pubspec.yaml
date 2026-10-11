@@ -39,6 +39,9 @@ dependencies:
     path: vendor/material_design_icons_flutter
   path_provider: ^2.1.6
   just_audio: ^0.10.6
+  # Local extension; never include this dependency in an upstream contribution.
+  doorbird_intercom:
+    path: packages/doorbird_intercom
 
 dev_dependencies:
   flutter_test:
@@ -65,7 +68,6 @@ flutter:
   # Built-in chimes, synthesised (no samples to license): doorbell, chime, alert.
   assets:
     - assets/sounds/
-    - assets/licenses/intercom.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

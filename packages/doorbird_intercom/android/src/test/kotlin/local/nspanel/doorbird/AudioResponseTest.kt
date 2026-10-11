@@ -1,4 +1,4 @@
-package nl.mennovanhout.nspanel_app.intercom
+package local.nspanel.doorbird
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail

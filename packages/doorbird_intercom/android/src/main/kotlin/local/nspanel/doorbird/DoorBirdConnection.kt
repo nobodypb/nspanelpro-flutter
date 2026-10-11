@@ -1,4 +1,4 @@
-package nl.mennovanhout.nspanel_app.intercom
+package local.nspanel.doorbird
 
 import android.util.Base64
 import org.json.JSONObject

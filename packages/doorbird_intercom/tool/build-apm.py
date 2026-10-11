@@ -21,9 +21,10 @@ def main():
  p = argparse.ArgumentParser()
  p.add_argument('--ndk', required=True)
  p.add_argument('--cmake', required=True)
+ p.add_argument('--build-root', type=Path, default=ROOT / 'build')
  p.add_argument('--abis', default='arm64-v8a')
  a = p.parse_args()
- work = ROOT / 'build/intercom-apm'
+ work = a.build_root / 'intercom-apm'
  work.mkdir(parents=True, exist_ok=True)
  for name, sha in HASHES.items():
   if hashlib.sha256((VENDOR / name).read_bytes()).hexdigest() != sha:
@@ -54,10 +55,10 @@ def main():
   if not (build / 'build.ninja').exists():
    subprocess.run([str(meson), 'setup', str(build), str(source), '--cross-file', str(cross), '-Dbuildtype=release', '-Ddefault_library=static', '-Dgnustl=disabled', '--wrap-mode=nodownload'], env=env, check=True)
   subprocess.run([str(meson), 'compile', '-C', str(build), '-j', '2'], env=env, check=True)
-  output = ROOT / 'build/intercom-jni' / abi
+  output = a.build_root / 'intercom-jni' / abi
   output.mkdir(parents=True, exist_ok=True)
   archives = sorted(str(x) for x in build.rglob('*.a'))
-  subprocess.run([str(toolchain / (target + '-clang++')), '-shared', '-fPIC', '-O2', '-std=c++17', '-static-libstdc++', '-DWEBRTC_POSIX', '-DWEBRTC_ANDROID', '-I'+str(source/'webrtc'), '-I'+str(source/'subprojects/abseil-cpp-20230125.1'), str(ROOT/'android/app/src/main/cpp/intercom_apm.cpp'), '-Wl,--start-group', *archives, '-Wl,--end-group', '-llog', '-Wl,-z,max-page-size=16384', '-o', str(output/'libintercom_apm.so')], check=True)
-  subprocess.run([str(toolchain / (target + '-clang++')), '-fPIE', '-pie', '-O2', '-std=c++17', '-static-libstdc++', '-DWEBRTC_POSIX', '-DWEBRTC_ANDROID', '-I'+str(source/'webrtc'), '-I'+str(source/'subprojects/abseil-cpp-20230125.1'), str(ROOT/'android/app/src/main/cpp/intercom_apm_probe.cpp'), '-Wl,--start-group', *archives, '-Wl,--end-group', '-llog', '-o', str(work/(abi+'-probe'))], check=True)
+  subprocess.run([str(toolchain / (target + '-clang++')), '-shared', '-fPIC', '-O2', '-std=c++17', '-static-libstdc++', '-DWEBRTC_POSIX', '-DWEBRTC_ANDROID', '-I'+str(source/'webrtc'), '-I'+str(source/'subprojects/abseil-cpp-20230125.1'), str(ROOT/'android/src/main/cpp/intercom_apm.cpp'), '-Wl,--start-group', *archives, '-Wl,--end-group', '-llog', '-Wl,-z,max-page-size=16384', '-o', str(output/'libintercom_apm.so')], check=True)
+  subprocess.run([str(toolchain / (target + '-clang++')), '-fPIE', '-pie', '-O2', '-std=c++17', '-static-libstdc++', '-DWEBRTC_POSIX', '-DWEBRTC_ANDROID', '-I'+str(source/'webrtc'), '-I'+str(source/'subprojects/abseil-cpp-20230125.1'), str(ROOT/'android/src/main/cpp/intercom_apm_probe.cpp'), '-Wl,--start-group', *archives, '-Wl,--end-group', '-llog', '-o', str(work/(abi+'-probe'))], check=True)
 
 if __name__ == '__main__': main()

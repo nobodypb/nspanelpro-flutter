@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 import '../config/dashboard.dart';
-import '../intercom/intercom_sheet.dart';
 import '../ha/states.dart';
 import '../ui/page_scope.dart';
 import '../ui/theme.dart';
@@ -66,12 +65,13 @@ class _CameraCardState extends State<CameraCard> {
     ..connectionTimeout = const Duration(seconds: 6);
 
   bool get _active =>
-      (_scope?.active ?? true) && !(widget.env.intercom?.inUse ?? false);
+      (_scope?.active ?? true) &&
+      !(widget.env.cameraInteraction?.suspendsStillImages ?? false);
 
   @override
   void initState() {
     super.initState();
-    widget.env.intercom?.addListener(_sync);
+    widget.env.cameraInteraction?.addListener(_sync);
   }
 
   Duration get _interval => Duration(
@@ -94,7 +94,7 @@ class _CameraCardState extends State<CameraCard> {
   @override
   void dispose() {
     _changes?.removeListener(_sync);
-    widget.env.intercom?.removeListener(_sync);
+    widget.env.cameraInteraction?.removeListener(_sync);
     _next?.cancel();
     super.dispose();
   }
@@ -187,17 +187,8 @@ class _CameraCardState extends State<CameraCard> {
         final showName = c.boolOr('show_name', true);
         final contain = c.str('fit') == 'contain';
         final frame = _frame;
-        final intercom = c['intercom'];
-        final profile = intercom is Map ? intercom['profile'] : null;
         return GestureDetector(
-          onTap: profile is String && profile.isNotEmpty
-              ? () => showIntercomProbe(
-                  context,
-                  widget.env,
-                  profile,
-                  c.str('title') ?? 'DoorBird',
-                )
-              : null,
+          onTap: widget.env.cameraInteraction?.action(context, c),
           child: Container(
             height: height,
             clipBehavior: Clip.antiAlias,
