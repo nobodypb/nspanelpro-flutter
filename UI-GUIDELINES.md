@@ -233,7 +233,12 @@ both image sources, keep the last still until the first decoded live frame, and
 return to polling without changing geometry after End. Existing cameras without
 a configured local capability retain their layout.
 
-A sole camera card must also receive the available page-height constraint. On the
-real panel with a 432px app viewport, the 12px outer padding leaves a 456×408 card:
+A sole camera card must also receive the available page-height constraint. If the
+app viewport is constrained to 432px, the 12px outer padding leaves a 456×408 card:
 its picture becomes 456×300 while all four targets stay 108×76, fully visible.
 Never validate touch geometry only against a nominal 480px screen height.
+
+The panel ROM may report a 432px accessibility content bound while its immersive
+window visibly draws and accepts touch across 480px. Do not mistake these clipped
+accessibility rectangles for actual target sizes: verify rendered bounds and a
+tap near the lower edge. A controls-only crop avoids recording camera content.
