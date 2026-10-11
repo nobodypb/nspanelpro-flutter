@@ -37,3 +37,12 @@ promoting this probe into a completed feature.
 The pure native `arm64-v8a-probe` executable in `build/intercom-apm` tests AEC
 with deterministic synthetic echo. It does not access microphone or speaker.
 Build and deploy only the combined develop state using the workspace workflow.
+
+Panel deployment prerequisite: the tested OEM image redirects all outbound TCP
+port 80 traffic to its local web UI on 8082. HTTP audio cannot work through that
+rule. The feasibility test temporarily exempted only the develop application's
+UID and the configured DoorBird IPv4 destination/port 80 from that redirect.
+It did not disable the panel web server or modify other applications' routing.
+Persistent provisioning and reboot acceptance remain open until the physical
+media gate passes. The app itself never edits firewall rules. Unexpected audio
+content types are rejected before any bytes reach the speaker.
