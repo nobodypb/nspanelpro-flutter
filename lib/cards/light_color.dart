@@ -9,11 +9,18 @@ enum LightChannel { brightness, temperature, hue, saturation }
 
 /// Shared normalized range policy. HA receives one property per command.
 class LightColor {
-  LightColor(this.state) : caps = LightCapabilities(state);
+  LightColor(
+    this.state, {
+    Map<String, dynamic>? attributes,
+    this.lastValues = false,
+  }) : attributes = attributes ?? state?.attributes ?? const {},
+       caps = LightCapabilities(state);
+  final Map<String, dynamic> attributes;
+  final bool lastValues;
   final HaState? state;
   final LightCapabilities caps;
   double? number(String key) {
-    final v = state?.attributes[key];
+    final v = attributes[key];
     return v is num && v.isFinite ? v.toDouble() : null;
   }
 
@@ -56,7 +63,7 @@ class LightColor {
   };
 
   (double, double) get hs {
-    final hs = state?.attributes['hs_color'];
+    final hs = attributes['hs_color'];
     if (hs is List &&
         hs.length == 2 &&
         hs.every((v) => v is num && v.isFinite)) {
@@ -65,7 +72,7 @@ class LightColor {
         (hs[1] as num).toDouble().clamp(0, 100),
       );
     }
-    final rgb = state?.attributes['rgb_color'];
+    final rgb = attributes['rgb_color'];
     if (rgb is List &&
         rgb.length >= 3 &&
         rgb.take(3).every((v) => v is num && v.isFinite)) {
@@ -86,6 +93,8 @@ class LightColor {
     LightChannel.brightness =>
       state?.isOn == true
           ? ((number('brightness') ?? 255) / 255).clamp(0, 1)
+          : lastValues && state?.state == 'off'
+          ? ((number('brightness') ?? 0) / 255).clamp(0, 1)
           : 0,
     LightChannel.hue => hs.$1 / 360,
     LightChannel.saturation => hs.$2 / 100,

@@ -622,3 +622,21 @@ retry. A timeout cannot prove whether the device eventually applied the command.
 
 Contract reference: [HA light entity](https://developers.home-assistant.io/docs/core/entity/light/)
 and [light actions](https://www.home-assistant.io/integrations/light/).
+
+### Last confirmed light values
+
+Light details remember confirmed on-state brightness, colour mode, HS/RGB colour,
+colour temperature and effect locally. When a light is off, valid HA attributes
+take precedence and missing values fall back to this memory. The status reads
+`Off · last values`; dashboard tiles still show the actual off state. Unavailable
+entities and capabilities always come from live HA state. The remembered effect
+can be selected again while off to turn the light on. The plain power action
+still sends only `turn_on`; it never reapplies a saved snapshot.
+
+The cache is scoped to the HA origin, limited to 128 lights and survives restarts.
+Only confirmed HA on-state messages update it; drafts, service acknowledgements,
+failed commands and zero/null off attributes do not. Writes are batched for two
+seconds and flushed when an off update arrives. Storage failure falls back to
+session memory. Each client remembers what it has observed itself; changes while
+it was absent cannot be recovered from missing off attributes. No history API,
+background polling, new dependency or HA helper is required.

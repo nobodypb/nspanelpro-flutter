@@ -246,7 +246,9 @@ class _DashboardState extends State<Dashboard> {
 
     _conn.onReady = _loadConfig;
     _conn.status.addListener(_onStatus);
-    _conn.start();
+    _states.lightMemory.load(widget.settings.url).then((_) {
+      if (mounted) _conn.start();
+    });
     widget.display.controller.addListener(_displayChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -520,6 +522,7 @@ class _DashboardState extends State<Dashboard> {
     _conn.status.removeListener(_onStatus);
     _unsubLovelace?.call();
     _conn.dispose();
+    _states.lightMemory.dispose();
     super.dispose();
   }
 
