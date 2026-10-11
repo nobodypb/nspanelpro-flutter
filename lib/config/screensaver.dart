@@ -137,8 +137,9 @@ class ScreensaverConfig {
       proximityDelta:
           (o['proximity_delta'] as num?)?.toDouble().clamp(1, 1000) ??
           proximityDelta,
-      proximityBelow: proximityBelow,
-      // Zero from the MQTT number selects the learned resting level again.
+      // An explicit MQTT upper threshold replaces either absolute card bound.
+      // Zero selects the learned resting level again.
+      proximityBelow: o.containsKey('proximity_above') ? null : proximityBelow,
       proximityAbove: o.containsKey('proximity_above')
           ? (above != null && above > 0 ? above : null)
           : proximityAbove,
