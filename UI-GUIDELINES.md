@@ -163,8 +163,8 @@ or circular thumbs. Mark the position with a full-width soft shadow, without
 an opaque coloured line or outline. Use a transparent 3px marker, 5px for the
 selected `last_used` target, with a black 65% shadow (0/1 offset, blur 4, spread 1).
 The gradient remains visible through the marker. Follow the target light colour
-for the brightness fill, including live colour/white previews, mixed 30% toward
-`ground`. Place the shadow just above the brightness fill and clamp its marker
+for the brightness fill at full colour, including live colour/white previews.
+Place the shadow just above the brightness fill and clamp its marker
 inside the track at either end. Colour is
 a preview, not selection or success. Only brightness has embedded percentage text.
 Keep the percentage centred with its existing 44px digits (scaled down only
