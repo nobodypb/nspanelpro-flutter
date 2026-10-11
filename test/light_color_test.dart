@@ -112,6 +112,21 @@ Future<void> at(WidgetTester t, String ch, double value) async {
 Map<String, dynamic> last(FanHa f) =>
     f.sent.lastWhere((m) => m['type'] == 'call_service')['service_data']
         as Map<String, dynamic>;
+void expectStableOpacity(WidgetTester t) {
+  final sheet = find.byType(LightSheet);
+  final opacity = find.descendant(of: sheet, matching: find.byType(Opacity));
+  expect(t.widgetList<Opacity>(opacity).every((w) => w.opacity == 1), isTrue);
+  expect(
+    find.descendant(
+      of: sheet,
+      matching: find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == const Color(0x550B0D10),
+      ),
+    ),
+    findsNothing,
+  );
+}
+
 void main() {
   for (final c in jsonDecode(
     File('test/fixtures/light-color.json').readAsStringSync(),
@@ -190,6 +205,8 @@ void main() {
     await g.moveBy(const Offset(0, -70));
     await t.pump();
     expect(f.calls, isEmpty);
+    expect(slider(t, 'brightness').enabled, false);
+    expectStableOpacity(t);
     await g.cancel();
     await t.pump();
     expect(f.calls, isEmpty);
@@ -210,6 +227,7 @@ void main() {
     f.delay = true;
     await at(t, 'hue', .75);
     expect(slider(t, 'hue').enabled, false);
+    expectStableOpacity(t);
     await t.pump(const Duration(seconds: 2));
     expect(slider(t, 'hue').value, .75);
     await t.tap(find.byKey(const ValueKey('sheet-increase')));

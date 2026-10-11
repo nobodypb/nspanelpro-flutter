@@ -23,13 +23,14 @@ class SheetAction {
     this.primary = false,
     this.close = true,
     this.enabled = true,
+    this.dimWhenDisabled = true,
     this.selected = false,
     required this.run,
   });
   final String label;
   final IconData? icon;
   final bool primary;
-  final bool enabled, selected;
+  final bool enabled, selected, dimWhenDisabled;
   final bool close;
   final VoidCallback run;
 }
@@ -388,6 +389,7 @@ class _SheetState extends State<ControlSheet> {
                         Expanded(
                           child: SheetButton(
                             label: widget.actions[i].label,
+                            dimWhenDisabled: widget.actions[i].dimWhenDisabled,
                             color: widget.actions[i].primary
                                 ? widget.accent
                                 : widget.actions[i].selected
@@ -451,12 +453,14 @@ class SheetButton extends StatelessWidget {
     required this.child,
     this.size,
     this.color = Ns.surface,
+    this.dimWhenDisabled = true,
   });
   final String? label;
   final VoidCallback? onTap;
   final Widget child;
   final double? size;
   final Color color;
+  final bool dimWhenDisabled;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -467,7 +471,7 @@ class SheetButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Opacity(
-        opacity: onTap == null ? .35 : 1,
+        opacity: onTap == null && dimWhenDisabled ? .35 : 1,
         child: Container(
           width: size,
           height: size,
