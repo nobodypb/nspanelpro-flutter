@@ -162,7 +162,8 @@ Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs
 or circular thumbs. Mark the position with a full-width soft shadow, without
 an opaque coloured line or outline. Use a transparent 3px marker, 5px for the
 selected `last_used` target, with a black 65% shadow (0/1 offset, blur 4, spread 1).
-The gradient remains visible through the marker. Follow the target light colour
+Clip the shadow out of the marker itself: its crisp central strip shows the
+unmodified gradient, with soft shadow only outside, matching CSS box-shadow. Follow the target light colour
 for the brightness fill at full colour, including live colour/white previews.
 Place the shadow just above the brightness fill and clamp its marker
 inside the track at either end. Colour is
