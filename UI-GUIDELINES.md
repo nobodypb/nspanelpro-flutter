@@ -217,3 +217,18 @@ allow two title lines at the existing 22px size. Wider light cards and other
 FillCard consumers retain their layout. Six 144×216 light targets fit a
 480×480 panel in a 3×2 layout with 12px gaps and outer padding. Keep presets in
 the full-size sheet for this layout; never shrink its controls to match cards.
+
+### Inline camera media controls (NSP-018)
+
+A configured local camera keeps the same picture, status strip and bottom action
+row in still and live modes. All controls are below the image, including volume;
+there is no side step column, upper Close button or modal layout transition. This
+is the explicit camera layout requested by the user. Reuse `SheetButton`, palette,
+18px button radii, 8px gaps and the 76px action row. With a 456×444 card in the
+480×480 panel viewport, the picture is 456×336, status strip 32px, and each of four
+actions 108×76. Live/End stays in the same slot; Speak/Mute and volume controls are
+disabled until ready. State/error text stays readable outside disabled controls.
+No diagnostics cover the picture. Respect the configured contain/cover mode for
+both image sources, keep the last still until the first decoded live frame, and
+return to polling without changing geometry after End. Existing cameras without
+a configured local capability retain their layout.
