@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -259,6 +260,11 @@ class PanelBridge {
         'icon': 'mdi:brightness-auto',
         ...conf,
       }, command: true),
+      'switch/$deviceId/proximity_raw_stream': e('proximity_raw_stream', {
+        'name': 'Proximity raw stream',
+        'icon': 'mdi:chart-timeline-variant',
+        ...conf,
+      }, command: true),
       'number/$deviceId/brightness_min': e('brightness_min', {
         'name': 'Auto brightness minimum',
         'min': 0,
@@ -313,6 +319,7 @@ class PanelBridge {
     }
     mqtt.publish(availabilityTopic, 'online');
     mqtt.publish('$base/version', version);
+    mqtt.publish('$base/proximity_raw_stream', rawEnabled ? 'ON' : 'OFF');
 
     mqtt.subscribe('$base/brightness/set', (_, v) => _int(v, onBrightness));
     mqtt.subscribe('$base/volume/set', (_, v) => _int(v, onVolume));
@@ -322,16 +329,20 @@ class PanelBridge {
       (_, v) => onScreensaver?.call(v.trim().toUpperCase() == 'ON'),
     );
     mqtt.subscribe('$base/stop/set', (_, _) => onStop?.call());
+    mqtt.subscribe('$base/proximity_raw_stream/set', (_, value) {
+      final command = value.trim().toUpperCase();
+      if (command == 'ON' || command == 'OFF') setRawEnabled(command == 'ON');
+    });
     mqtt.subscribe('$base/update/set', (_, v) {
       if (v.trim().toLowerCase() == 'install') onInstall?.call();
     });
     for (final o in settingObjects) {
       mqtt.subscribe('$base/$o/set', (_, v) => onSetting?.call(o, v.trim()));
     }
-    mqtt.subscribe(
-      '$base/settings_reset/set',
-      (_, _) => onSetting?.call('settings_reset', 'PRESS'),
-    );
+    mqtt.subscribe('$base/settings_reset/set', (_, _) {
+      setRawEnabled(false);
+      onSetting?.call('settings_reset', 'PRESS');
+    });
     // The notify entity sends the message text. Anything that names audio is
     // played - a URL, an HA path like /local/x.mp3, a media-source:// id from
     // HA's media browser, or a built-in `sound:doorbell` - and anything else
@@ -377,6 +388,64 @@ class PanelBridge {
 
   final _last = <String, String>{};
   final _lastAt = <String, DateTime>{};
+
+  bool rawEnabled = false;
+  Timer? _rawTimer;
+  final _rawBuffer = <Map<String, Object?>>[];
+  final int _rawSession = DateTime.now().microsecondsSinceEpoch;
+  int _rawSequence = 0;
+
+  void setRawEnabled(bool enabled) {
+    if (rawEnabled == enabled) return;
+    if (!enabled) _flushRaw();
+    rawEnabled = enabled;
+    _rawTimer?.cancel();
+    _rawTimer = enabled
+        ? Timer.periodic(const Duration(seconds: 1), (_) => _flushRaw())
+        : null;
+    if (!enabled) _rawBuffer.clear();
+    mqtt.publish('$base/proximity_raw_stream', enabled ? 'ON' : 'OFF');
+  }
+
+  void rawReading(
+    double value,
+    int sensorNanoseconds, {
+    required bool displayOn,
+    double? lux,
+  }) {
+    if (!rawEnabled || !value.isFinite) return;
+    final sequence = ++_rawSequence;
+    if (!mqtt.connected.value) {
+      _rawBuffer.clear();
+      return;
+    }
+    _rawBuffer.add({
+      'seq': sequence,
+      'sensor_ns': sensorNanoseconds,
+      'utc_ms': DateTime.now().toUtc().millisecondsSinceEpoch,
+      'value': value,
+      'display_on': displayOn,
+      'lux': lux,
+    });
+    if (_rawBuffer.length >= 64) _flushRaw();
+  }
+
+  void _flushRaw() {
+    if (_rawBuffer.isEmpty) return;
+    if (rawEnabled && mqtt.connected.value) {
+      mqtt.publish(
+        '$base/proximity_raw',
+        jsonEncode({'session': _rawSession, 'samples': _rawBuffer}),
+        retain: false,
+      );
+    }
+    _rawBuffer.clear();
+  }
+
+  void dispose() {
+    _rawTimer?.cancel();
+    _rawBuffer.clear();
+  }
 
   void _set(
     String object,

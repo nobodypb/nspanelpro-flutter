@@ -210,7 +210,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /// A sensor as an event stream, registered only while Dart listens.
-    private fun sensorStream(sensors: SensorManager, sensor: Sensor?, keep: (SensorEventListener?) -> Unit) =
+    private fun sensorStream(sensors: SensorManager, sensor: Sensor?, timestamped: Boolean = false, keep: (SensorEventListener?) -> Unit) =
         object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
                 if (sensor == null) {
@@ -218,7 +218,13 @@ class MainActivity : FlutterActivity() {
                     return
                 }
                 val l = object : SensorEventListener {
-                    override fun onSensorChanged(e: SensorEvent) { events.success(e.values[0].toDouble()) }
+                    override fun onSensorChanged(e: SensorEvent) {
+                        if (timestamped) {
+                            events.success(mapOf("value" to e.values[0].toDouble(), "sensor_ns" to e.timestamp))
+                        } else {
+                            events.success(e.values[0].toDouble())
+                        }
+                    }
                     override fun onAccuracyChanged(s: Sensor?, a: Int) {}
                 }
                 keep(l)
@@ -272,7 +278,7 @@ class MainActivity : FlutterActivity() {
         // The NSPanel Pro's proximity sensor streams a graded value at ~10 Hz;
         // the light sensor reports lux. Both are on-change and cheap.
         EventChannel(messenger, "nl.mennovanhout.nspanel/proximity").setStreamHandler(
-            sensorStream(sensors, proximity) { l ->
+            sensorStream(sensors, proximity, timestamped = true) { l ->
                 proximityListener?.let { sensors.unregisterListener(it) }
                 proximityListener = l
             })

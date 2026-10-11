@@ -11,19 +11,37 @@ class Proximity {
   static const _events = EventChannel('nl.mennovanhout.nspanel/proximity');
   static const _methods = MethodChannel('nl.mennovanhout.nspanel/sensors');
 
+  static Stream<ProximityReading>? _readings;
   static Stream<double>? _stream;
 
+  static Stream<ProximityReading> get readings =>
+      _readings ??= _events.receiveBroadcastStream().map((event) {
+        final data = (event as Map).cast<String, dynamic>();
+        return ProximityReading(
+          (data['value'] as num).toDouble(),
+          (data['sensor_ns'] as num).toInt(),
+        );
+      });
+
   static Stream<double> get stream =>
-      _stream ??= _events.receiveBroadcastStream().map((v) => (v as num).toDouble());
+      _stream ??= readings.map((reading) => reading.value);
 
   /// null when the device has no proximity sensor.
   static Future<double?> maxRange() async {
     try {
-      return (await _methods.invokeMethod<num>('proximityMaxRange'))?.toDouble();
+      return (await _methods.invokeMethod<num>('proximityMaxRange'))
+          ?.toDouble();
     } catch (_) {
       return null;
     }
   }
+}
+
+class ProximityReading {
+  const ProximityReading(this.value, this.sensorNanoseconds);
+
+  final double value;
+  final int sensorNanoseconds;
 }
 
 /// Decides, reading by reading, when the proximity sensor says somebody
@@ -79,7 +97,9 @@ class ApproachDetector {
       _resting = sorted[sorted.length ~/ 2];
       return false;
     }
-    final threshold = delta > _resting! * relative ? delta : _resting! * relative;
+    final threshold = delta > _resting! * relative
+        ? delta
+        : _resting! * relative;
     if ((v - _resting!).abs() > threshold) {
       return ++_hits >= confirm;
     }

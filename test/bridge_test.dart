@@ -11,6 +11,7 @@ class _Broker implements MqttTransport {
   final _out = StreamController<List<int>>();
   final _dec = MqttDecoder();
   final published = <String, String>{};
+  final rawPackets = <MqttPacket>[];
   final subscribed = <String>[];
 
   @override
@@ -36,6 +37,7 @@ class _Broker implements MqttTransport {
         case mqttPublish:
           final m = decodePublish(p);
           published[m.topic] = m.payload;
+          if (m.topic == 'nspanel/abc123/proximity_raw') rawPackets.add(p);
         case mqttPingreq:
           _out.add([mqttPingresp << 4, 0]);
       }
@@ -268,6 +270,42 @@ void main() {
     // the raw value went out at most once in this burst (1 s minimum interval)
     expect(broker.published['nspanel/abc123/proximity'], isNotNull);
   });
+
+  test(
+    'raw samples are batched only while enabled and never retained',
+    () async {
+      bridge.start();
+      await pumpEventQueue();
+      expect(broker.published['nspanel/abc123/proximity_raw_stream'], 'OFF');
+      bridge.rawReading(17, 100, displayOn: false, lux: 400);
+      expect(broker.rawPackets, isEmpty);
+
+      broker.deliver('nspanel/abc123/proximity_raw_stream/set', 'ON');
+      await pumpEventQueue();
+      bridge.rawReading(17, 100, displayOn: false, lux: 400);
+      bridge.rawReading(32, 200, displayOn: false, lux: 401);
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(broker.rawPackets, hasLength(1));
+      expect(broker.rawPackets.single.flags & 1, 0);
+      final batch =
+          jsonDecode(decodePublish(broker.rawPackets.single).payload) as Map;
+      final samples = batch['samples'] as List;
+      expect(samples.map((s) => s['value']).toList(), [17, 32]);
+      expect(samples.map((s) => s['sensor_ns']).toList(), [100, 200]);
+      expect(samples.map((s) => s['seq']).toList(), [1, 2]);
+      expect(samples.first['display_on'], false);
+      expect(samples.last['lux'], 401);
+      expect(samples.first['utc_ms'], isA<int>());
+
+      broker.deliver('nspanel/abc123/proximity_raw_stream/set', 'OFF');
+      await pumpEventQueue();
+      bridge.rawReading(40, 300, displayOn: true);
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(broker.rawPackets, hasLength(1));
+      expect(broker.published['nspanel/abc123/proximity_raw_stream'], 'OFF');
+      bridge.dispose();
+    },
+  );
 
   test('state is retained and unchanged values are not re-sent', () async {
     bridge.start();

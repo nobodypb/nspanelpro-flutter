@@ -327,7 +327,9 @@ class _DashboardState extends State<Dashboard> {
   late final Announcer _announcer;
   PanelBridge? _bridge;
   MqttClient? _mqtt;
-  StreamSubscription<double>? _proxAlways, _lightSub;
+  StreamSubscription<ProximityReading>? _proxAlways;
+  StreamSubscription<double>? _lightSub;
+  double? _latestLux;
   Timer? _diag;
   Timer? _updateCheck;
 
@@ -407,8 +409,17 @@ class _DashboardState extends State<Dashboard> {
     b.start();
 
     // sensors, continuously, rate-limited in the bridge
-    _proxAlways = Proximity.stream.listen(b.proximity, onError: (_) {});
+    _proxAlways = Proximity.readings.listen((reading) {
+      b.proximity(reading.value);
+      b.rawReading(
+        reading.value,
+        reading.sensorNanoseconds,
+        displayOn: widget.display.controller.interactive,
+        lux: _latestLux,
+      );
+    }, onError: (_) {});
     _lightSub = Device.light.listen((lux) {
+      _latestLux = lux;
       b.illuminance(lux);
       _followLight(lux);
     }, onError: (_) {});
@@ -592,6 +603,7 @@ class _DashboardState extends State<Dashboard> {
     }
     _proxAlways?.cancel();
     _lightSub?.cancel();
+    _bridge?.dispose();
     _mqtt?.dispose();
     _extensions.dispose();
     _announcer.dispose();
