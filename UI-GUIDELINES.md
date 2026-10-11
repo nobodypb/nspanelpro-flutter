@@ -159,14 +159,13 @@ Within the remaining 338px use one brightness track, two 162px tracks for TW, or
 three 103⅓px tracks for hue/saturation/brightness, with 14px gaps.
 
 Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs,
-or circular thumbs. Match the card's plain, full-width 3px level line, without
-an outline; use 5px for the selected `last_used` target. Follow the target light
-colour for both brightness fill and line, including live colour/white previews.
-Mix the line 24% toward white to emphasise that colour; never replace it with
-black/white contrast ink. Mix the brightness fill 30% toward `ground`, keeping
-it darker than the line. Give the line a black 65% shadow (0/1 offset, blur 4,
-spread 1) to separate it from both the gradient and fill. Place the line just
-above the brightness fill and clamp it inside the track at either end. Colour is
+or circular thumbs. Mark the position with a full-width soft shadow, without
+an opaque coloured line or outline. Use a transparent 3px marker, 5px for the
+selected `last_used` target, with a black 65% shadow (0/1 offset, blur 4, spread 1).
+The gradient remains visible through the marker. Follow the target light colour
+for the brightness fill, including live colour/white previews, mixed 30% toward
+`ground`. Place the shadow just above the brightness fill and clamp its marker
+inside the track at either end. Colour is
 a preview, not selection or success. Only brightness has embedded percentage text.
 Keep the percentage centred with its existing 44px digits (scaled down only
 when necessary), with a half-size 22px/600 percent sign on the same baseline.

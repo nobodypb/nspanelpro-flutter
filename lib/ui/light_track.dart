@@ -101,9 +101,8 @@ class _LightTrackState extends State<LightTrack> {
             ),
           ),
         );
-        // Preserve the selected hue; a lighter line and dark halo separate it
-        // from the gradient without replacing the preview with black ink.
-        final lineColor = Color.lerp(widget.color, Colors.white, .24)!;
+        // A soft shadow alone marks the position without painting over the
+        // selected colour in the gradient.
         final fillColor = Color.lerp(widget.color, Ns.ground, .30)!;
         final lineHeight = widget.active ? 5.0 : 3.0;
         return Listener(
@@ -168,7 +167,6 @@ class _LightTrackState extends State<LightTrack> {
                     child: Container(
                       height: lineHeight,
                       decoration: BoxDecoration(
-                        color: lineColor,
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0xA6000000),
