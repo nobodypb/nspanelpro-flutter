@@ -207,3 +207,13 @@ normal geometry and percentage typography; mark the existing status line as
 restore capabilities from memory. In the effect chooser a remembered selection
 keeps its check mark, but remains actionable while off so it can turn the light
 on. Opening details or the plain power action never restores cached parameters.
+
+
+### Narrow light cards
+
+Light cards under 180 logical pixels wide stack their 52px icon and existing
+40px percentage vertically. Use 16px horizontal and 18px vertical padding;
+allow two title lines at the existing 22px size. Wider light cards and other
+FillCard consumers retain their layout. Six 144×216 light targets fit a
+480×480 panel in a 3×2 layout with 12px gaps and outer padding. Keep presets in
+the full-size sheet for this layout; never shrink its controls to match cards.

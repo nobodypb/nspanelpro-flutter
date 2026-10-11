@@ -747,3 +747,26 @@ indices (also used by MQTT); its existing first swipe-container options govern
 its single native pager. Keep the recommended single panel view/container for
 identical page numbering in both renderers. Both new options and nested button
 actions survive the visual editor.
+
+
+### Swap tap and hold actions
+
+Light cards and switch cards support `swap_press_actions: true` (default
+`false`). Tap opens details; hold performs the usual power action exactly once.
+For a switch list, each entry may override the card setting with a boolean.
+`detail_entity` still selects only the detail target; power uses the original
+entity. Light `long_press: none` and switch `more_info: false` still disable
+only the detail action, including when it moves to tap. Dragging and presets
+keep their existing actions. Unavailable devices cannot send power commands.
+
+```yaml
+type: custom:nspanel-light-card
+entity: light.example
+swap_press_actions: true
+long_press: sheet
+show_presets: false
+```
+
+Narrow light cards (under 180 logical pixels wide) place the icon above the
+percentage and allow two title lines. At 480×480, six cards fit in two rows of
+three with 216-pixel heights, 12-pixel gaps and 12-pixel outer padding.
