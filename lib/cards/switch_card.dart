@@ -67,6 +67,13 @@ class _SwitchCardState extends State<SwitchCard> {
   final _timers = <Timer>[];
 
   List<CardConfig> _items() {
+    if (c.maps('groups').isNotEmpty) {
+      return [
+        for (final group in c.maps('groups'))
+          for (final item in group.maps('switches'))
+            if (item['entity'] != null) item,
+      ];
+    }
     final raw = c['switches'] is List && c.listOr('switches').isNotEmpty
         ? c.listOr('switches')
         : (c['entity'] != null
@@ -222,10 +229,119 @@ class _SwitchCardState extends State<SwitchCard> {
         height: c.numOr('height', 200),
         accent: accent,
         padding: const EdgeInsets.all(12),
-        child: TileGrid(
-          columns: _columns,
-          stretch: true,
-          children: [for (final s in _sws) _tile(s, accent)],
+        child: c.maps('groups').isNotEmpty
+            ? _groupedTiles(accent)
+            : TileGrid(
+                columns: _columns,
+                stretch: true,
+                children: [for (final s in _sws) _tile(s, accent)],
+              ),
+      ),
+    );
+  }
+
+  Widget _groupedTiles(Color accent) {
+    var offset = 0;
+    final sections = <Widget>[];
+    for (final group in c.maps('groups')) {
+      final count = group
+          .maps('switches')
+          .where((i) => i['entity'] != null)
+          .length;
+      final switches = _sws.skip(offset).take(count).toList();
+      offset += count;
+      if (switches.isEmpty) continue;
+      if (sections.isNotEmpty) sections.add(const SizedBox(height: 10));
+      sections.add(
+        Text(
+          group.str('name') ?? '',
+          style: const TextStyle(
+            color: Ns.muted,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 4));
+      for (var i = 0; i < switches.length; i += 2) {
+        if (i > 0) sections.add(const SizedBox(height: 8));
+        sections.add(
+          SizedBox(
+            height: 60,
+            child: Row(
+              children: [
+                Expanded(child: _socketTile(switches[i], accent)),
+                if (i + 1 < switches.length) ...[
+                  const SizedBox(width: 10),
+                  Expanded(child: _socketTile(switches[i + 1], accent)),
+                ],
+              ],
+            ),
+          ),
+        );
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: sections,
+    );
+  }
+
+  Widget _socketTile(_Sw sw, Color accent) {
+    final state = widget.env.states.get(sw.entity);
+    final broken = state == null || state.isBroken;
+    final on = !broken && _isOn(sw);
+    final name = sw.item.str('name') ?? friendlyName(state, sw.entity);
+    final circuit = sw.item.str('circuit') ?? '';
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: broken ? null : () => _press(sw),
+      onLongPress: () => _details(sw),
+      child: Opacity(
+        opacity: broken ? .45 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: on ? accent.withValues(alpha: .16) : Ns.surface2,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: on ? accent : Ns.text,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      circuit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Ns.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                broken ? '—' : (on ? 'An' : 'Aus'),
+                style: TextStyle(
+                  color: on ? accent : Ns.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
