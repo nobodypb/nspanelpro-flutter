@@ -193,16 +193,18 @@ void main() {
     },
   );
   testWidgets(
-    'six narrow lights fit 480 square at 100 percent, off and unavailable',
+    'eight tall lights fit 480 square at 100 percent, off and unavailable',
     (t) async {
       final (fake, states) = await light.mount(t, ['color_temp']);
       final env = t.widget<LightCard>(find.byType(LightCard)).env;
       final titles = [
-        'Wohnen',
         'Essen',
-        'WC',
+        'Küche',
+        'Wohnen',
+        'Kind 2',
         'Esstisch',
-        'Haubenlicht',
+        'Hauben­licht',
+        'WC',
         'Abstell',
       ];
       await t.pumpWidget(
@@ -217,13 +219,13 @@ void main() {
                     if (row > 0) const SizedBox(height: 12),
                     Row(
                       children: [
-                        for (var col = 0; col < 3; col++) ...[
+                        for (var col = 0; col < 4; col++) ...[
                           if (col > 0) const SizedBox(width: 12),
                           Expanded(
                             child: LightCard(
                               config: {
                                 'entity': 'light.test',
-                                'title': titles[row * 3 + col],
+                                'title': titles[row * 4 + col],
                                 'height': 216,
                                 'show_presets': false,
                                 'swap_press_actions': true,
@@ -262,7 +264,7 @@ void main() {
         }
         for (final card in find.byType(FillCard).evaluate()) {
           final size = t.getSize(find.byWidget(card.widget));
-          expect(size, const Size(144, 216));
+          expect(size, const Size(105, 216));
         }
       }
       expect(fake.calls, isEmpty);

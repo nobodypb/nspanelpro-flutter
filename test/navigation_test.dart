@@ -382,4 +382,79 @@ void main() {
       await conn.dispose();
     },
   );
+
+  testWidgets(
+    'six compact start destinations fit and DoorBird keeps its return time',
+    (tester) async {
+      configure(count: 7, overrides: const {6: 60});
+      tester.view.physicalSize = const Size(480, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fake = FakeHa({});
+      final states = HaStates();
+      final conn = HaConnection(
+        transportFactory: () async => fake,
+        token: 'fake',
+        states: states,
+      );
+      final targets = [
+        ('Wetter', 0),
+        ('Licht', 1),
+        ('Steckdosen', 3),
+        ('Rollläden', 4),
+        ('Klima', 5),
+        ('DoorBird', 6),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ButtonCard(
+              env: PanelEnv(
+                states: states,
+                conn: conn,
+                settings: Settings(url: 'http://fake', token: 'fake'),
+                navigation: nav,
+              ),
+              config: {
+                'height': 168,
+                'columns': 3,
+                'compact_rows': true,
+                'buttons': [
+                  for (final (name, page) in targets)
+                    {
+                      'name': name,
+                      'tap_action': {'action': 'navigate-page', 'page': page},
+                    },
+                ],
+              },
+            ),
+          ),
+        ),
+      );
+      for (final (name, page) in targets) {
+        final target = find
+            .ancestor(
+              of: find.text(name),
+              matching: find.byType(GestureDetector),
+            )
+            .first;
+        expect(tester.getSize(target).width, greaterThanOrEqualTo(56));
+        expect(tester.getSize(target).height, greaterThanOrEqualTo(56));
+        await tester.tap(find.text(name));
+        await tester.pump();
+        expect(nav.current, page);
+      }
+      now = 59999;
+      nav.check();
+      expect(nav.current, 6);
+      now = 60000;
+      nav.check();
+      expect(nav.current, 2);
+      expect(fake.calls, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      nav.visibility(false);
+      await conn.dispose();
+    },
+  );
 }
