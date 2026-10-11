@@ -163,17 +163,21 @@ class _LightTrackState extends State<LightTrack> {
                     right: 0,
                     top: ((1 - widget.value) * box.maxHeight - lineHeight)
                         .clamp(0, box.maxHeight - lineHeight),
-                    child: Container(
-                      height: lineHeight,
-                      decoration: BoxDecoration(
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0xA6000000),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
+                    child: ClipPath(
+                      clipper: const _OutsideMarker(),
+                      clipBehavior: Clip.hardEdge,
+                      child: Container(
+                        height: lineHeight,
+                        decoration: BoxDecoration(
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0xA6000000),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -188,4 +192,18 @@ class _LightTrackState extends State<LightTrack> {
       },
     ),
   );
+}
+
+/// Match CSS outer box-shadow: the crisp centre shows the track unchanged.
+class _OutsideMarker extends CustomClipper<Path> {
+  const _OutsideMarker();
+
+  @override
+  Path getClip(Size size) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addRect((Offset.zero & size).inflate(8))
+    ..addRect(Offset.zero & size);
+
+  @override
+  bool shouldReclip(_OutsideMarker oldClipper) => false;
 }
