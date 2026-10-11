@@ -17,7 +17,7 @@ import 'package:nspanel_app/ui/sheet.dart';
 import 'package:nspanel_app/ui/theme.dart';
 
 import 'connection_test.dart' show st;
-import 'fan_details_test.dart' show FanHa;
+import 'service_ha.dart' show ServiceHa;
 
 const attrs = <String, dynamic>{
   'supported_color_modes': ['rgb', 'color_temp'],
@@ -36,7 +36,7 @@ const favorites = [
   {'effect': 'Rainbow', 'name': 'Regenbogen'},
   {'effect': 'Missing'},
 ];
-Future<(FanHa, HaStates)> mount(
+Future<(ServiceHa, HaStates)> mount(
   WidgetTester t, {
   Map<String, dynamic> config = const {},
   String state = 'on',
@@ -47,7 +47,7 @@ Future<(FanHa, HaStates)> mount(
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.resetPhysicalSize);
   addTearDown(t.view.resetDevicePixelRatio);
-  final fake = FanHa({
+  final fake = ServiceHa({
     'light.test': st('light.test', state, attrs),
     'switch.quick': st('switch.quick', 'off', {}),
   });
@@ -115,7 +115,7 @@ Future<void> at(WidgetTester t, String ch, double value) async {
   await t.pump();
 }
 
-Map<String, dynamic> last(FanHa f) =>
+Map<String, dynamic> last(ServiceHa f) =>
     f.sent.lastWhere((m) => m['type'] == 'call_service')['service_data']
         as Map<String, dynamic>;
 void expectStableOpacity(WidgetTester t) {
