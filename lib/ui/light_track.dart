@@ -103,7 +103,6 @@ class _LightTrackState extends State<LightTrack> {
         );
         // A soft shadow alone marks the position without painting over the
         // selected colour in the gradient.
-        final fillColor = Color.lerp(widget.color, Ns.ground, .30)!;
         final lineHeight = widget.active ? 5.0 : 3.0;
         return Listener(
           onPointerCancel: (_) => cancel(),
@@ -156,7 +155,7 @@ class _LightTrackState extends State<LightTrack> {
                       child: FractionallySizedBox(
                         heightFactor: widget.value,
                         widthFactor: 1,
-                        child: ColoredBox(color: fillColor),
+                        child: ColoredBox(color: widget.color),
                       ),
                     ),
                   Positioned(
