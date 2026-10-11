@@ -238,6 +238,7 @@ String intercomMessage(String? error) => switch (error) {
   'video' => 'Livevideo unterbrochen',
   'audio_focus' => 'Panel-Audio wird anderweitig verwendet',
   'audio_device' => 'Panel-Audio nicht verfügbar',
+  'audio_response' => 'Audioantwort ungültig – Netzwerk prüfen',
   'session_expired' => 'Sitzung abgelaufen – bitte neu starten',
   _ => 'Verbindung fehlgeschlagen',
 };

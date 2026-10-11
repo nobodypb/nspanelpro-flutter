@@ -85,6 +85,7 @@ class DoorBirdConnection(private val profile: Map<*, *>) : Closeable {
         if (closed) { c.disconnect(); throw IntercomFailure("closed") }
         android.util.Log.i("Intercom", "receive HTTP ${c.responseCode}, length ${c.contentLength}")
         checkStatus(c.responseCode)
+        checkAudioContentType(c.contentType)
         return BufferedInputStream(c.inputStream)
     }
     // DoorBird requires a streaming HTTP/1.0 body with a declared long length.
@@ -109,6 +110,11 @@ class DoorBirdConnection(private val profile: Map<*, *>) : Closeable {
         sockets.clear(); requests.clear(); session = ""
     }
     companion object {
+        fun checkAudioContentType(value: String?) {
+            if (value?.substringBefore(';')?.trim()?.lowercase() != "audio/basic") {
+                throw IntercomFailure("audio_response")
+            }
+        }
         fun checkStatus(status: Int) {
             if (status != 200) throw IntercomFailure(when (status) {
                 204 -> "permission"
