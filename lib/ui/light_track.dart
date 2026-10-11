@@ -161,8 +161,11 @@ class _LightTrackState extends State<LightTrack> {
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: ((1 - widget.value) * box.maxHeight - lineHeight)
-                        .clamp(0, box.maxHeight - lineHeight),
+                    // Brightness sits inside its fill so its clear centre is coloured.
+                    top:
+                        ((1 - widget.value) * box.maxHeight -
+                                (widget.gradient == null ? 0 : lineHeight))
+                            .clamp(0, box.maxHeight - lineHeight),
                     child: ClipPath(
                       clipper: const _OutsideMarker(),
                       clipBehavior: Clip.hardEdge,
@@ -171,10 +174,9 @@ class _LightTrackState extends State<LightTrack> {
                         decoration: BoxDecoration(
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0xA6000000),
+                              color: Color(0x73000000),
                               blurRadius: 4,
-                              spreadRadius: 1,
-                              offset: Offset(0, 1),
+                              offset: Offset(0, -1),
                             ),
                           ],
                         ),
