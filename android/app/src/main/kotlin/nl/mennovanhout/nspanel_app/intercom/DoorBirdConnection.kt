@@ -64,6 +64,7 @@ class DoorBirdConnection(private val profile: Map<*, *>) : Closeable {
         requests.add(c)
         if (closed) { c.disconnect(); throw IntercomFailure("closed") }
         try {
+            android.util.Log.i("Intercom", "session HTTP ${c.responseCode}")
             checkStatus(c.responseCode)
             val bytes = c.inputStream.use { it.readBytesLimited(16384) }
             val result = JSONObject(String(bytes, Charsets.UTF_8)).getJSONObject("BHA")
@@ -82,6 +83,7 @@ class DoorBirdConnection(private val profile: Map<*, *>) : Closeable {
         c.connectTimeout = 5000; c.readTimeout = 5000
         requests.add(c)
         if (closed) { c.disconnect(); throw IntercomFailure("closed") }
+        android.util.Log.i("Intercom", "receive HTTP ${c.responseCode}, length ${c.contentLength}")
         checkStatus(c.responseCode)
         return BufferedInputStream(c.inputStream)
     }
