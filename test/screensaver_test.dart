@@ -102,6 +102,9 @@ void main() {
       expect(card.withOverrides({'proximity_above': 25}).proximityAbove, 25);
       expect(card.withOverrides({'proximity_above': 0}).proximityAbove, isNull);
       expect(card.withOverrides({'proximity_delta': 6}).proximityAbove, 200);
+      final reversed = ScreensaverConfig.fromMap({'proximity_below': 30});
+      expect(reversed.withOverrides({'proximity_above': 25}).proximityBelow, isNull);
+      expect(reversed.withOverrides({'proximity_above': 0}).proximityBelow, isNull);
     },
   );
 
