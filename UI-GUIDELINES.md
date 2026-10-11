@@ -159,12 +159,16 @@ Within the remaining 338px use one brightness track, two 162px tracks for TW, or
 three 103⅓px tracks for hue/saturation/brightness, with 14px gaps.
 
 Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs,
-or circular thumbs. A full-width horizontal light line with a 1px dark edge marks
-each position (2px inner line; 4px for the selected `last_used` target). Colour is
+or circular thumbs. Match the card's plain, full-width 3px level line, without
+an outline; use 5px for the selected `last_used` target. Prefer the card accent,
+falling back to contrasting `ground` or `text` when the accent has less than 3:1
+contrast against the local gradient or fully filled track. Place the line just
+above the brightness fill and clamp it inside the track at either end. Colour is
 a preview, not selection or success. Only brightness has embedded percentage text.
 For that text, clip a second copy to the filled region and choose `ground` or
 `text` according to contrast against the solid target colour; the unfilled region
-uses `text` on `surface`. This replaces the dark backing box for light tracks.
+uses `text` on `surface`. Paint both text layers above the position line so it
+never covers the digits. This replaces the dark backing box for light tracks.
 Colour gradients and brightness target fill use full opacity, independently of
 category/action accents. Existing card `follow_color` and explicit accents remain.
 

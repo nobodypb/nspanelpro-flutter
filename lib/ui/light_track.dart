@@ -13,6 +13,7 @@ class LightTrack extends StatefulWidget {
     required this.decreasedText,
     required this.value,
     required this.color,
+    this.markerColor = Ns.amber,
     this.gradient,
     this.percent = false,
     this.active = false,
@@ -26,7 +27,7 @@ class LightTrack extends StatefulWidget {
   });
   final String label, valueText, increasedText, decreasedText;
   final double value;
-  final Color color;
+  final Color color, markerColor;
   final List<Color>? gradient;
   final bool percent, active, enabled, dimWhenDisabled;
   final ValueChanged<double> onInput, onCommit;
@@ -85,6 +86,29 @@ class _LightTrackState extends State<LightTrack> {
                 (Ns.text.computeLuminance() + .05) / (dark + .05)
             ? Ns.ground
             : Ns.text;
+        // Match the card's plain level line. Put it just above the fill;
+        // gradients and a completely filled track may need contrasting ink.
+        Color background = widget.value == 1 ? widget.color : Ns.surface;
+        if (widget.gradient case final colors?) {
+          final position = widget.value * (colors.length - 1);
+          final index = position.floor().clamp(0, colors.length - 2);
+          background = Color.lerp(
+            colors[index],
+            colors[index + 1],
+            position - index,
+          )!;
+        }
+        double contrast(Color a, Color b) {
+          final x = a.computeLuminance(), y = b.computeLuminance();
+          return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
+        }
+
+        final lineColor = contrast(widget.markerColor, background) >= 3
+            ? widget.markerColor
+            : contrast(Ns.ground, background) > contrast(Ns.text, background)
+            ? Ns.ground
+            : Ns.text;
+        final lineHeight = widget.active ? 5.0 : 3.0;
         return Listener(
           onPointerCancel: (_) => cancel(),
           child: GestureDetector(
@@ -139,6 +163,13 @@ class _LightTrackState extends State<LightTrack> {
                         child: ColoredBox(color: widget.color),
                       ),
                     ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: ((1 - widget.value) * box.maxHeight - lineHeight)
+                        .clamp(0, box.maxHeight - lineHeight),
+                    child: Container(height: lineHeight, color: lineColor),
+                  ),
                   if (widget.percent) ...[
                     ExcludeSemantics(child: label(Ns.text)),
                     ClipRect(
@@ -146,20 +177,6 @@ class _LightTrackState extends State<LightTrack> {
                       child: ExcludeSemantics(child: label(ink)),
                     ),
                   ],
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top:
-                        ((1 - widget.value) * box.maxHeight -
-                                (widget.active ? 3 : 2))
-                            .clamp(0, box.maxHeight - (widget.active ? 6 : 4)),
-                    child: Container(
-                      height: widget.active ? 6 : 4,
-                      color: Ns.ground,
-                      padding: const EdgeInsets.symmetric(vertical: 1),
-                      child: const ColoredBox(color: Ns.text),
-                    ),
-                  ),
                   if (!widget.enabled && widget.dimWhenDisabled)
                     const ColoredBox(color: Color(0x550B0D10)),
                 ],
