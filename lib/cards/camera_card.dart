@@ -7,13 +7,18 @@ import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 import '../config/dashboard.dart';
+import '../intercom/intercom_sheet.dart';
 import '../ha/states.dart';
 import '../ui/page_scope.dart';
 import '../ui/theme.dart';
 import 'env.dart';
 
 /// One still from a camera: the entity, and the size it will be shown at.
-typedef FrameFetch = Future<Uint8List?> Function(String entity, int width, int height);
+typedef FrameFetch = Future<Uint8List?> Function(
+  String entity,
+  int width,
+  int height,
+);
 
 /// A camera on the wall - a doorbell, a driveway.
 ///
@@ -28,7 +33,12 @@ typedef FrameFetch = Future<Uint8List?> Function(String entity, int width, int h
 /// for when the last one has arrived, so a slow network slows the pictures
 /// down rather than piling requests up.
 class CameraCard extends StatefulWidget {
-  const CameraCard({super.key, required this.config, required this.env, this.fetch});
+  const CameraCard({
+    super.key,
+    required this.config,
+    required this.env,
+    this.fetch,
+  });
   final CardConfig config;
   final PanelEnv env;
 
@@ -52,12 +62,21 @@ class _CameraCardState extends State<CameraCard> {
   bool _logged = false;
   Size _size = const Size(480, 300);
 
-  static final _http = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+  static final _http = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 6);
 
-  bool get _active => _scope?.active ?? true;
+  bool get _active =>
+      (_scope?.active ?? true) && !(widget.env.intercom?.inUse ?? false);
 
-  Duration get _interval =>
-      Duration(milliseconds: (c.numOr('interval', 1).clamp(0.2, 3600) * 1000).round());
+  @override
+  void initState() {
+    super.initState();
+    widget.env.intercom?.addListener(_sync);
+  }
+
+  Duration get _interval => Duration(
+    milliseconds: (c.numOr('interval', 1).clamp(0.2, 3600) * 1000).round(),
+  );
 
   @override
   void didChangeDependencies() {
@@ -75,6 +94,7 @@ class _CameraCardState extends State<CameraCard> {
   @override
   void dispose() {
     _changes?.removeListener(_sync);
+    widget.env.intercom?.removeListener(_sync);
     _next?.cancel();
     super.dispose();
   }
@@ -93,7 +113,9 @@ class _CameraCardState extends State<CameraCard> {
 
   Future<Uint8List?> _fromHa(String entity, int width, int height) async {
     final s = widget.env.settings;
-    final uri = Uri.parse(s.resolve('/api/camera_proxy/$entity?width=$width&height=$height'));
+    final uri = Uri.parse(
+      s.resolve('/api/camera_proxy/$entity?width=$width&height=$height'),
+    );
     final req = await _http.getUrl(uri);
     // the long-lived token, not the entity's rotating one: nothing to refresh
     req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${s.token}');
@@ -133,8 +155,10 @@ class _CameraCardState extends State<CameraCard> {
       _fails = 0;
       if (!_logged) {
         _logged = true;
-        debugPrint('camera: $_entity first still ${bytes.length ~/ 1024} kB in '
-            '${DateTime.now().difference(started).inMilliseconds} ms');
+        debugPrint(
+          'camera: $_entity first still ${bytes.length ~/ 1024} kB in '
+          '${DateTime.now().difference(started).inMilliseconds} ms',
+        );
       }
       setState(() => _frame = bytes);
     } else {
@@ -143,7 +167,9 @@ class _CameraCardState extends State<CameraCard> {
     }
     if (!_active) return;
     // a camera that is not answering is asked less often, not hammered
-    final wait = _fails > 0 ? Duration(seconds: _fails.clamp(3, 15)) : _interval;
+    final wait = _fails > 0
+        ? Duration(seconds: _fails.clamp(3, 15))
+        : _interval;
     _next?.cancel();
     _next = Timer(wait, () {
       _next = null;
@@ -161,81 +187,115 @@ class _CameraCardState extends State<CameraCard> {
         final showName = c.boolOr('show_name', true);
         final contain = c.str('fit') == 'contain';
         final frame = _frame;
-        return Container(
-          height: height,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(color: Ns.surface, borderRadius: BorderRadius.circular(Ns.radius)),
-          child: LayoutBuilder(builder: (context, box) {
-            _size = Size(box.maxWidth.isFinite ? box.maxWidth : 480, height);
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                if (frame == null || _fails >= 3)
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(MdiIcons.cctv, size: 44, color: Ns.muted),
-                      const SizedBox(height: 8),
-                      Text(
-                        gone
-                            ? 'Camera unavailable'
-                            : _fails >= 3
+        final intercom = c['intercom'];
+        final profile = intercom is Map ? intercom['profile'] : null;
+        return GestureDetector(
+          onTap: profile is String && profile.isNotEmpty
+              ? () => showIntercomProbe(
+                  context,
+                  widget.env,
+                  profile,
+                  c.str('title') ?? 'DoorBird',
+                )
+              : null,
+          child: Container(
+            height: height,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Ns.surface,
+              borderRadius: BorderRadius.circular(Ns.radius),
+            ),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                _size = Size(
+                  box.maxWidth.isFinite ? box.maxWidth : 480,
+                  height,
+                );
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (frame == null || _fails >= 3)
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(MdiIcons.cctv, size: 44, color: Ns.muted),
+                          const SizedBox(height: 8),
+                          Text(
+                            gone
+                                ? 'Camera unavailable'
+                                : _fails >= 3
                                 ? 'No picture'
                                 : 'Loading…',
-                        style: const TextStyle(color: Ns.muted, fontSize: 15),
-                      ),
-                    ],
-                  )
-                else
-                  ColoredBox(
-                    color: Colors.black,
-                    child: Image.memory(
-                      frame,
-                      fit: contain ? BoxFit.contain : BoxFit.cover,
-                      // the new still replaces the old one without a blank between
-                      gaplessPlayback: true,
-                      // decoded at the card's size, not the camera's
-                      cacheWidth: (_size.width * MediaQuery.devicePixelRatioOf(context)).round(),
-                      errorBuilder: (_, _, _) => const SizedBox(),
-                    ),
-                  ),
-                if (showName && frame != null && _fails < 3) ...[
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 72,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [Color(0x8C000000), Color(0x00000000)],
+                            style: const TextStyle(
+                              color: Ns.muted,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      ColoredBox(
+                        color: Colors.black,
+                        child: Image.memory(
+                          frame,
+                          fit: contain ? BoxFit.contain : BoxFit.cover,
+                          // the new still replaces the old one without a blank between
+                          gaplessPlayback: true,
+                          // decoded at the card's size, not the camera's
+                          cacheWidth:
+                              (_size.width *
+                                      MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
+                          errorBuilder: (_, _, _) => const SizedBox(),
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: 14,
-                    child: Text(
-                      c.str('title') ?? c.str('name') ?? friendlyName(s, _entity),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -.2,
-                        shadows: [Shadow(offset: Offset(0, 1), blurRadius: 4, color: Color(0x99000000))],
+                    if (showName && frame != null && _fails < 3) ...[
+                      const Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 72,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Color(0x8C000000), Color(0x00000000)],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ],
-            );
-          }),
+                      Positioned(
+                        left: 20,
+                        right: 20,
+                        bottom: 14,
+                        child: Text(
+                          c.str('title') ??
+                              c.str('name') ??
+                              friendlyName(s, _entity),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -.2,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 4,
+                                color: Color(0x99000000),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
         );
       },
     );

@@ -20,7 +20,10 @@ class Settings {
     this.feedback,
     this.overrides,
     this.brightness,
+    this.intercomProfiles,
   });
+
+  Map<String, dynamic>? intercomProfiles;
 
   String url;
   String token;
@@ -97,6 +100,7 @@ class Settings {
   static const _kFeedback = 'feedback';
   static const _kOverrides = 'overrides';
   static const _kBrightness = 'brightness';
+  static const _kIntercom = 'intercom_profiles';
 
   static Map<String, dynamic>? _map(SharedPreferences p, String key) {
     final raw = p.getString(key);
@@ -159,6 +163,11 @@ class Settings {
                   : null)
             : current?.feedback,
         overrides: current?.overrides,
+        intercomProfiles: j.containsKey('intercom_profiles')
+            ? (j['intercom_profiles'] is Map
+                  ? Map<String, dynamic>.from(j['intercom_profiles'])
+                  : null)
+            : current?.intercomProfiles,
         brightness: j.containsKey('brightness')
             ? (j['brightness'] is Map
                   ? (j['brightness'] as Map).cast<String, dynamic>()
@@ -168,7 +177,7 @@ class Settings {
       await s.save();
       return true;
     } catch (e) {
-      debugPrint('setup.json: $e');
+      debugPrint('setup.json: invalid settings (${e.runtimeType})');
       return false;
     }
   }
@@ -192,6 +201,7 @@ class Settings {
       feedback: _map(p, _kFeedback),
       overrides: _map(p, _kOverrides),
       brightness: _map(p, _kBrightness),
+      intercomProfiles: _map(p, _kIntercom),
     );
   }
 
@@ -208,6 +218,7 @@ class Settings {
       _kFeedback: feedback,
       _kOverrides: overrides,
       _kBrightness: brightness,
+      _kIntercom: intercomProfiles,
     };
     for (final e in maps.entries) {
       if (e.value == null) {
@@ -236,6 +247,7 @@ class Settings {
     await p.remove(_kTts);
     await p.remove(_kOverrides);
     await p.remove(_kBrightness);
+    await p.remove(_kIntercom);
   }
 
   /// The dashboard's url_path, however it was typed. People paste what the

@@ -29,7 +29,22 @@ class DisplayController extends ChangeNotifier {
   int _generation = 0;
   Timer? _idle, _darkTimer;
   ScreensaverConfig get effective => config ?? const ScreensaverConfig();
+  int _holds = 0;
+  VoidCallback hold() {
+    _holds++;
+    _cancelTimers();
+    wake();
+    bool released = false;
+    return () {
+      if (released || _disposed) return;
+      released = true;
+      _holds--;
+      if (_holds == 0) _arm();
+    };
+  }
+
   bool get canIdle =>
+      _holds == 0 &&
       enabled &&
       foreground &&
       fingers == 0 &&
