@@ -172,3 +172,8 @@ Effects and light presets use the same two-column 220×76 chooser convention as
 fans, with fixed Back and Close. Configured effects are explicitly checked against
 capabilities and selection has a check mark. Semantic slider names, values and
 increase/decrease actions are retained even though the visual scales are absent.
+
+Light controls keep their normal opacity during a drag and while a command is
+pending. Temporary input locks must not fade neighbouring sliders, steps, actions
+or choices. Unavailable devices, unsupported choices and range limits still use
+the disabled treatment; input and accessibility guards remain in force.

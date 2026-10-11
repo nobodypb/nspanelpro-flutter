@@ -17,6 +17,7 @@ class LightTrack extends StatefulWidget {
     this.percent = false,
     this.active = false,
     this.enabled = true,
+    this.dimWhenDisabled = true,
     required this.onInput,
     required this.onCommit,
     required this.onCancel,
@@ -27,7 +28,7 @@ class LightTrack extends StatefulWidget {
   final double value;
   final Color color;
   final List<Color>? gradient;
-  final bool percent, active, enabled;
+  final bool percent, active, enabled, dimWhenDisabled;
   final ValueChanged<double> onInput, onCommit;
   final VoidCallback onCancel, onIncrease, onDecrease;
   @override
@@ -159,7 +160,7 @@ class _LightTrackState extends State<LightTrack> {
                       child: const ColoredBox(color: Ns.text),
                     ),
                   ),
-                  if (!widget.enabled)
+                  if (!widget.enabled && widget.dimWhenDisabled)
                     const ColoredBox(color: Color(0x550B0D10)),
                 ],
               ),

@@ -304,6 +304,7 @@ class _LightSheetState extends State<LightSheet> {
             icon: Icons.palette_outlined,
             close: false,
             enabled: _drag == null,
+            dimWhenDisabled: false,
             run: () => setState(() {
               _white = !_white;
               _active = LightChannel.brightness;
@@ -315,6 +316,7 @@ class _LightSheetState extends State<LightSheet> {
             icon: Icons.list,
             close: false,
             enabled: _drag == null,
+            dimWhenDisabled: false,
             run: () => _browse('Presets'),
           ),
         if (_favorites.isNotEmpty)
@@ -323,6 +325,7 @@ class _LightSheetState extends State<LightSheet> {
             icon: Icons.auto_awesome,
             close: false,
             enabled: _drag == null,
+            dimWhenDisabled: false,
             run: () => _browse('Effects'),
           ),
         SheetAction(
@@ -331,11 +334,16 @@ class _LightSheetState extends State<LightSheet> {
           primary: true,
           close: false,
           enabled: available && !_busy && _drag == null,
+          dimWhenDisabled: !available,
           run: () => _action(() => controls.call(on ? 'turn_off' : 'turn_on')),
         ),
       ],
     ];
     final contentEnabled = available && !_busy;
+    bool canStep(int direction) =>
+        p.allows(_active) &&
+        (_active == LightChannel.hue ||
+            (direction == 1 ? values[_active]! < 1 : values[_active]! > 0));
     final body = _chooser != null
         ? GridView.count(
             padding: EdgeInsets.zero,
@@ -360,6 +368,7 @@ class _LightSheetState extends State<LightSheet> {
                         : p.caps.allowsPreset(s, item);
                     return SheetButton(
                       label: name,
+                      dimWhenDisabled: !available || !allowed || selected,
                       color: selected
                           ? accent.withValues(alpha: .16)
                           : Ns.surface,
@@ -461,6 +470,7 @@ class _LightSheetState extends State<LightSheet> {
                       _ => null,
                     },
                     enabled: contentEnabled && (_drag == null || _drag == ch),
+                    dimWhenDisabled: !available,
                     onInput: (v) => setState(() {
                       if (_drag == null) _draft.addAll(values);
                       _drag = ch;
@@ -489,14 +499,11 @@ class _LightSheetState extends State<LightSheet> {
                           ),
                           label:
                               '${direction == 1 ? 'Increase' : 'Decrease'} ${_active.name}',
+                          dimWhenDisabled: !available || !canStep(direction),
                           onTap:
                               contentEnabled &&
                                   _drag == null &&
-                                  p.allows(_active) &&
-                                  (_active == LightChannel.hue ||
-                                      (direction == 1
-                                          ? values[_active]! < 1
-                                          : values[_active]! > 0))
+                                  canStep(direction)
                               ? () => _step(_active, direction)
                               : null,
                           child: Icon(
