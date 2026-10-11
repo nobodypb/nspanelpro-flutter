@@ -65,6 +65,7 @@ flutter:
   # Built-in chimes, synthesised (no samples to license): doorbell, chime, alert.
   assets:
     - assets/sounds/
+    - assets/licenses/intercom.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

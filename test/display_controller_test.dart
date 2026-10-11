@@ -56,6 +56,29 @@ void touch(
 );
 
 void main() {
+  testWidgets(
+    'call holds survive activity and renew idle after final release',
+    (t) async {
+      final d = Driver();
+      final c = DisplayController(d)..configure(config, active: true);
+      final first = c.hold(), second = c.hold();
+      touch(c, 0);
+      await t.pump(const Duration(seconds: 120));
+      expect(d.offs, 0);
+      first();
+      first();
+      await t.pump(const Duration(seconds: 30));
+      expect(d.offs, 0);
+      second();
+      await t.pump(const Duration(seconds: 14));
+      expect(d.offs, 0);
+      await t.pump(const Duration(seconds: 1));
+      await t.pump(const Duration(milliseconds: 1));
+      expect(d.offs, 1);
+      expect(d.systemTimeout, 15000);
+      c.dispose();
+    },
+  );
   testWidgets('held finger and multi-touch inhibit idle until final release', (
     t,
   ) async {

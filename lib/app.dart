@@ -10,6 +10,7 @@ import 'package:flutter/services.dart' show appFlavor;
 import 'package:path_provider/path_provider.dart';
 
 import 'audio/announcer.dart';
+import 'intercom/intercom.dart';
 import 'cards/env.dart';
 import 'cards/registry.dart';
 import 'mqtt/bridge.dart';
@@ -206,6 +207,20 @@ class _DashboardState extends State<Dashboard> {
   late final HaStates _states = HaStates();
   late final HaConnection _conn;
   late final PanelEnv _env;
+  late final IntercomController _intercom;
+  VoidCallback? _releaseIntercomDisplay, _releaseIntercomNavigation;
+  void _intercomBusy(bool busy) {
+    if (busy) {
+      _releaseIntercomDisplay ??= widget.display.controller.hold();
+      _releaseIntercomNavigation ??= _navigation.hold();
+    } else {
+      _releaseIntercomDisplay?.call();
+      _releaseIntercomDisplay = null;
+      _releaseIntercomNavigation?.call();
+      _releaseIntercomNavigation = null;
+    }
+  }
+
   List<PanelPage> _pages = const [];
   PagerOptions _pager = const PagerOptions();
   String? _error;
@@ -261,11 +276,19 @@ class _DashboardState extends State<Dashboard> {
       token: widget.settings.token,
       states: _states,
     );
+    _intercom = IntercomController(
+      NativeIntercomTransport(),
+      onBusy: _intercomBusy,
+      beforeOpen: () => _announcer.stop(),
+    );
     _env = PanelEnv(
       states: _states,
       conn: _conn,
       settings: widget.settings,
-      play: (ref) => _announcer.play(ref),
+      play: (ref) {
+        if (!_intercom.inUse) _announcer.play(ref);
+      },
+      intercom: _intercom,
       navigation: _navigation,
     );
 
@@ -359,8 +382,12 @@ class _DashboardState extends State<Dashboard> {
       onScreensaver: (on) =>
           on ? widget.display.controller.sleep(force: true) : _wake(),
       onPage: _navigation.navigate,
-      onSay: _announcer.say,
-      onPlay: _announcer.play,
+      onSay: (text) {
+        if (!_intercom.inUse) _announcer.say(text);
+      },
+      onPlay: (ref) {
+        if (!_intercom.inUse) _announcer.play(ref);
+      },
       onStop: _announcer.stop,
       onWake: _wake,
       onInstall: () => widget.updater.install(),
@@ -559,6 +586,7 @@ class _DashboardState extends State<Dashboard> {
     _proxAlways?.cancel();
     _lightSub?.cancel();
     _mqtt?.dispose();
+    _intercom.dispose();
     _announcer.dispose();
     _navigationEvents?.cancel();
     _navigation.dispose();

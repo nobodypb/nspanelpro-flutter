@@ -86,4 +86,29 @@ flutter {
     source = "../.."
 }
 
- dependencies { testImplementation("junit:junit:4.13.2") }
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
+}
+
+val intercomAbis = (project.findProperty("target-platform")?.toString() ?: "android-arm64")
+    .split(",").map { when (it) {
+        "android-arm" -> "armeabi-v7a"
+        "android-x64" -> "x86_64"
+        else -> "arm64-v8a"
+    } }.distinct().joinToString(",")
+val buildIntercomApm = tasks.register<Exec>("buildIntercomApm") {
+    val root = rootProject.projectDir.parentFile
+    inputs.dir(File(root, "vendor/audio-processing"))
+    inputs.file(File(root, "dev/build-intercom-apm.py"))
+    inputs.dir(File(projectDir, "src/main/cpp"))
+    inputs.property("abis", intercomAbis)
+    outputs.dir(File(root, "build/intercom-jni"))
+    commandLine("python3", File(root, "dev/build-intercom-apm.py"),
+        "--ndk", File(android.sdkDirectory, "ndk/28.2.13676358"),
+        "--cmake", File(android.sdkDirectory, "cmake/3.22.1"), "--abis", intercomAbis)
+}
+android.sourceSets.getByName("main").jniLibs.srcDir("../../build/intercom-jni")
+tasks.named("preBuild").configure { dependsOn(buildIntercomApm) }

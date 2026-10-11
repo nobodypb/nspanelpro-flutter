@@ -19,6 +19,20 @@ class PanelNavigation extends ChangeNotifier {
   String? _structure;
   Timer? _timer;
   final _dialogs = <VoidCallback>{};
+  int _holds = 0;
+  bool get held => _holds > 0;
+  VoidCallback hold() {
+    _holds++;
+    _timer?.cancel();
+    bool released = false;
+    return () {
+      if (released || _disposed) return;
+      released = true;
+      _holds--;
+      if (_holds == 0) activity();
+    };
+  }
+
   bool get busy => fingers > 0 || scrolling;
   int get seconds => after == 0 ? 0 : (overrides[current] ?? after);
   bool valid(int index) => index >= 0 && index < count;
@@ -52,7 +66,7 @@ class PanelNavigation extends ChangeNotifier {
   }
 
   bool navigate(int index) {
-    if (_disposed || !valid(index)) return false;
+    if (_disposed || held || !valid(index)) return false;
     if (busy) {
       _pending = index;
       return true;
@@ -141,6 +155,7 @@ class PanelNavigation extends ChangeNotifier {
   void check({bool animated = true}) {
     if (_disposed ||
         !visible ||
+        held ||
         busy ||
         _deadline == null ||
         _now() < _deadline!) {
@@ -158,7 +173,7 @@ class PanelNavigation extends ChangeNotifier {
 
   void _arm() {
     _timer?.cancel();
-    if (_disposed || !visible || busy || _deadline == null) return;
+    if (_disposed || held || !visible || busy || _deadline == null) return;
     _timer = Timer(
       Duration(milliseconds: (_deadline! - _now()).clamp(0, 86400000)),
       () {
