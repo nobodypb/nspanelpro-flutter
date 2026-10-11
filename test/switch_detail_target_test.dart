@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nspanel_app/cards/env.dart';
+import 'package:nspanel_app/cards/fan_sheet.dart';
 import 'package:nspanel_app/cards/light_sheet.dart';
 import 'package:nspanel_app/cards/switch_card.dart';
 import 'package:nspanel_app/config/settings.dart';
@@ -82,6 +83,34 @@ Future<void> closeTarget(WidgetTester t) async {
 }
 
 void main() {
+  testWidgets(
+    'a kitchen shortcut names its fan detail without changing the tile',
+    (t) async {
+      final (fake, _) = await mountTarget(
+        t,
+        config: {
+          'switches': [
+            {
+              'entity': 'switch.primary',
+              'name': 'Küche',
+              'detail_entity': 'fan.detail',
+              'detail_name': 'Dunstabzug',
+            },
+          ],
+        },
+        targets: {
+          'fan.detail': st('fan.detail', 'off', {'supported_features': 49}),
+        },
+      );
+      expect(find.text('Küche'), findsOneWidget);
+      await t.longPress(find.text('Küche'));
+      await t.pumpAndSettle();
+      expect(find.byType(FanSheet), findsOneWidget);
+      expect(find.text('Dunstabzug'), findsOneWidget);
+      expect(fake.calls, isEmpty);
+    },
+  );
+
   testWidgets('HA config replaces cached detail bindings without restart', (
     t,
   ) async {
