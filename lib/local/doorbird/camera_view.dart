@@ -130,6 +130,7 @@ class _CameraViewState extends State<IntercomCameraView> {
               key: const ValueKey('camera-picture'),
               borderRadius: BorderRadius.circular(SheetMetrics.levelRadius),
               child: Semantics(
+                container: true,
                 label: widget.title,
                 image: true,
                 child: hasVideo

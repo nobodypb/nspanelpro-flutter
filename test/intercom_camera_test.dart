@@ -122,6 +122,68 @@ void main() {
     },
   );
 
+  testWidgets('camera actions fit a 432px viewport without clipped hit areas', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(480, 432);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final transport = FakeIntercom();
+    final extension = DoorBirdExtension(
+      transport: transport,
+      beforeMedia: () async {},
+      loadProfile: (_) async => {},
+      holdDisplay: () => () {},
+      holdNavigation: () => () {},
+    );
+    final states = HaStates();
+    final conn = HaConnection(
+      token: 'test',
+      states: states,
+      transportFactory: () async => throw StateError('No network'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Flexible(
+                  child: CameraCard(
+                    config: {...config, 'height': 444},
+                    env: PanelEnv(
+                      states: states,
+                      conn: conn,
+                      settings: Settings(url: 'http://unused', token: 'test'),
+                      cameraInteraction: extension,
+                    ),
+                    fetch: (_, _, _) async => null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('camera-picture'))),
+      const Size(456, 300),
+    );
+    for (final element in find.byType(SheetButton).evaluate()) {
+      final rect = tester.getRect(find.byWidget(element.widget));
+      expect(rect.size, const Size(108, 76));
+      expect(rect.bottom, lessThanOrEqualTo(420));
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    extension.dispose();
+    await transport.stream.close();
+    unawaited(conn.dispose());
+  });
+
   testWidgets('camera polling resumes in place after live ends', (
     tester,
   ) async {
