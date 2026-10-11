@@ -448,7 +448,6 @@ class _LightSheetState extends State<LightSheet> {
                     ),
                     value: values[ch]!,
                     color: target,
-                    markerColor: accent,
                     percent: ch == LightChannel.brightness,
                     active: _lastUsed && ch == _active,
                     gradient: switch (ch) {

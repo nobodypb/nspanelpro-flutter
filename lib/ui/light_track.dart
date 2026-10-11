@@ -13,7 +13,6 @@ class LightTrack extends StatefulWidget {
     required this.decreasedText,
     required this.value,
     required this.color,
-    this.markerColor = Ns.amber,
     this.gradient,
     this.percent = false,
     this.active = false,
@@ -27,7 +26,7 @@ class LightTrack extends StatefulWidget {
   });
   final String label, valueText, increasedText, decreasedText;
   final double value;
-  final Color color, markerColor;
+  final Color color;
   final List<Color>? gradient;
   final bool percent, active, enabled, dimWhenDisabled;
   final ValueChanged<double> onInput, onCommit;
@@ -63,29 +62,45 @@ class _LightTrackState extends State<LightTrack> {
     child: LayoutBuilder(
       builder: (_, box) {
         double at(double y) => (1 - y / box.maxHeight).clamp(0, 1);
-        Widget label(Color color) => Center(
+        Widget label() => Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                '${(widget.value * 100).round()}%',
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '${(widget.value * 100).round()}'),
+                    const TextSpan(
+                      text: '%',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
                 style: TextStyle(
-                  color: color,
+                  color: Ns.text,
                   fontSize: 44,
                   fontWeight: FontWeight.w700,
                   fontFeatures: Ns.tabular,
+                  shadows: [
+                    ...Ns.shadow,
+                    // Keep card-like light text readable over bright colours.
+                    for (final offset in const [
+                      Offset(-1, 0),
+                      Offset(1, 0),
+                      Offset(0, -1),
+                      Offset(0, 1),
+                    ])
+                      Shadow(offset: offset, color: Ns.ground),
+                  ],
                 ),
               ),
             ),
           ),
         );
-        final dark = widget.color.computeLuminance();
-        final ink =
-            (dark + .05) / (Ns.ground.computeLuminance() + .05) >=
-                (Ns.text.computeLuminance() + .05) / (dark + .05)
-            ? Ns.ground
-            : Ns.text;
         // Match the card's plain level line. Put it just above the fill;
         // gradients and a completely filled track may need contrasting ink.
         Color background = widget.value == 1 ? widget.color : Ns.surface;
@@ -103,8 +118,8 @@ class _LightTrackState extends State<LightTrack> {
           return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
         }
 
-        final lineColor = contrast(widget.markerColor, background) >= 3
-            ? widget.markerColor
+        final lineColor = contrast(widget.color, background) >= 3
+            ? widget.color
             : contrast(Ns.ground, background) > contrast(Ns.text, background)
             ? Ns.ground
             : Ns.text;
@@ -170,13 +185,7 @@ class _LightTrackState extends State<LightTrack> {
                         .clamp(0, box.maxHeight - lineHeight),
                     child: Container(height: lineHeight, color: lineColor),
                   ),
-                  if (widget.percent) ...[
-                    ExcludeSemantics(child: label(Ns.text)),
-                    ClipRect(
-                      clipper: _FillClip(widget.value),
-                      child: ExcludeSemantics(child: label(ink)),
-                    ),
-                  ],
+                  if (widget.percent) ExcludeSemantics(child: label()),
                   if (!widget.enabled && widget.dimWhenDisabled)
                     const ColoredBox(color: Color(0x550B0D10)),
                 ],
@@ -187,14 +196,4 @@ class _LightTrackState extends State<LightTrack> {
       },
     ),
   );
-}
-
-class _FillClip extends CustomClipper<Rect> {
-  _FillClip(this.value);
-  final double value;
-  @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(0, size.height * (1 - value), size.width, size.height);
-  @override
-  bool shouldReclip(_FillClip oldClipper) => oldClipper.value != value;
 }
