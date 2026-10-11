@@ -187,8 +187,10 @@ class _FillCardState extends State<FillCard> {
                 ),
               LayoutBuilder(builder: (context, constraints) {
                 final narrow = widget.responsiveLightLayout && constraints.maxWidth < 180;
+                final ultraNarrow = widget.responsiveLightLayout && constraints.maxWidth < 120;
                 return Padding(
-                padding: EdgeInsets.fromLTRB(narrow ? 16 : 20, 18, narrow ? 16 : 20, 18),
+                padding: EdgeInsets.fromLTRB(ultraNarrow ? 12 : narrow ? 16 : 20, 18,
+                    ultraNarrow ? 12 : narrow ? 16 : 20, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -198,7 +200,11 @@ class _FillCardState extends State<FillCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (widget.leading != null) widget.leading!,
+                          if (widget.leading != null)
+                            ultraNarrow
+                                ? SizedBox(width: 44, height: 44,
+                                    child: FittedBox(child: widget.leading!))
+                                : widget.leading!,
                           if (widget.value != null)
                             FittedBox(fit: BoxFit.scaleDown, child: widget.value!),
                         ],
@@ -215,8 +221,10 @@ class _FillCardState extends State<FillCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.title, maxLines: narrow ? 2 : 1, overflow: TextOverflow.ellipsis, style: nameStyle),
-                        Text(widget.sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
+                        Text(widget.title, maxLines: narrow ? 2 : 1, overflow: TextOverflow.ellipsis,
+                            style: ultraNarrow ? nameStyle.copyWith(fontSize: 18, height: 22 / 18) : nameStyle),
+                        Text(widget.sub, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: ultraNarrow ? subStyle.copyWith(fontSize: 12, height: 16 / 12) : subStyle),
                         if (widget.chips.isNotEmpty)
                           ChipRow(chips: widget.chips, on: widget.on, opaque: widget.opaqueChips),
                         if (widget.chips2.isNotEmpty)

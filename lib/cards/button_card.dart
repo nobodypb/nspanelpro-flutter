@@ -240,12 +240,15 @@ class _ButtonCardState extends State<ButtonCard> {
             children: [
               Icon(
                 icon,
-                size: showName ? (compact ? 32 : 40) : (compact ? 40 : 48),
+                size: c.boolOr('compact_rows', false)
+                    ? 26
+                    : (showName ? (compact ? 32 : 40) : (compact ? 40 : 48)),
                 color: hot ? accent : Ns.muted,
               ),
               // icon only, unless it is waiting for the second tap: that has
               // to be said, so the name's line comes back with "Tap again"
-              if (showName || b.armed) const SizedBox(height: 8),
+              if (showName || b.armed)
+                SizedBox(height: c.boolOr('compact_rows', false) ? 3 : 8),
               if (showName || b.armed)
                 Text(
                   label,
@@ -253,7 +256,9 @@ class _ButtonCardState extends State<ButtonCard> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: hot || b.armed ? accent : Ns.text,
-                    fontSize: compact ? 15 : 18,
+                    fontSize: c.boolOr('compact_rows', false)
+                        ? 14
+                        : (compact ? 15 : 18),
                     fontWeight: FontWeight.w600,
                     letterSpacing: -.2,
                   ),
