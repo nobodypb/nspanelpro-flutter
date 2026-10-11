@@ -98,6 +98,8 @@ class ControlSheet extends StatefulWidget {
     required this.actions,
     this.onInput,
     this.onCommit,
+    this.snapValue,
+    this.stepValue,
     this.body,
     this.stateColor = Ns.muted,
     this.verticalPadding = SheetMetrics.padding,
@@ -112,6 +114,8 @@ class ControlSheet extends StatefulWidget {
   final List<SheetAction> actions;
   final ValueChanged<double>? onInput;
   final ValueChanged<double>? onCommit;
+  final double Function(double)? snapValue;
+  final double Function(double, int)? stepValue;
   final Widget? body;
   final Color stateColor;
   final double verticalPadding, verticalGap;
@@ -138,7 +142,7 @@ class _SheetState extends State<ControlSheet> {
 
   void _set(double v, {bool commit = false}) {
     if (!widget.enabled || !widget.showLevel) return;
-    _v = v.clamp(0.0, 1.0);
+    _v = (widget.snapValue?.call(v) ?? v).clamp(0.0, 1.0);
     setState(() {});
     if (commit) {
       widget.onCommit?.call(_v);
@@ -149,7 +153,10 @@ class _SheetState extends State<ControlSheet> {
 
   void _stepBy(double delta) {
     HapticFeedback.lightImpact();
-    _set(_v + delta / 100, commit: true);
+    _set(
+      widget.stepValue?.call(_v, delta < 0 ? -1 : 1) ?? _v + delta / 100,
+      commit: true,
+    );
   }
 
   @override

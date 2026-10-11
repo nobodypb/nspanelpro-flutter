@@ -15,7 +15,8 @@ the web sheet has some different radii and text sizes.
 - Use large rounded rectangles: cards have radius 22, level surfaces 20 and
   sheet buttons 18. Secondary buttons use `Ns.surface` (`#16191F`) with
   `Ns.text` (`#F2F4F7`); a primary action uses the card accent with dark text.
-  Selected secondary actions may use a 16% accent tint.
+  Selected secondary actions may use a 16% accent tint. Default fan accent is
+  amber (`#FFB74A`), not the app theme's Material button colour.
 - Keep the hierarchy: title 22/700, state 15/500 in `Ns.muted` (`#98A1B0`),
   level 44/700 with tabular digits. Action labels are 14/600 with 24px icons;
   step icons are 34px. Use `Ns.danger` (`#F87171`) for command errors.
@@ -27,7 +28,7 @@ the web sheet has some different radii and text sizes.
 - Offer one contextual power action, not an On/Off pair. Successful power or
   preset selection closes the dialog; failure stays visible for retry. Show
   only supported controls and disable unavailable or pending actions.
-- Keep at most four equal-width bottom actions. Additional choices open an
+- Keep at most four equal-width bottom actions. More fan presets open an
   explicit chooser with two columns of 76px-high tiles, a fixed Back action
   and the same Close button. Scroll the choices, never shrink their hitboxes.
 
@@ -118,8 +119,8 @@ Sizes are **logical pixels**, not icon sizes. At the tested Pro 86 configuration
 (480×480 pixels, Android density 160) they also equal physical pixel counts.
 Insets and larger accessibility text can change the available content area.
 The figures below describe a 480×480 viewport with no SafeArea inset, normal
-text size and one bottom action row. Widget tests compare the actual light
-hit rectangles, including a tap near a button corner.
+text size and one bottom action row. Widget tests compare the actual fan and
+light hit rectangles, including a tap near a button corner.
 
 | Element | Touch area / geometry |
 | --- | --- |
@@ -148,7 +149,7 @@ a large target. Disabled targets are visibly subdued and must not forward a tap
 to the dashboard. Keep feedback governed by the panel's existing settings.
 
 
-### Light colour dialogs
+### Light dialog extension (NSP-004)
 
 Light sheets keep horizontal padding 16, radius 20 tracks, radius 18 buttons,
 56px Close and 76px actions. Vertical padding is 12 and gaps above/below the body
@@ -177,7 +178,8 @@ regions at the fill boundary. Paint it above the position line. No label box.
 Colour gradients and brightness target fill use full opacity, independently of
 category/action accents. Existing card `follow_color` and explicit accents remain.
 
-Effects and light presets use the two-column 220×76 chooser convention, with fixed Back and Close. Configured effects are explicitly checked against
+Effects and light presets use the same two-column 220×76 chooser convention as
+fans, with fixed Back and Close. Configured effects are explicitly checked against
 capabilities and selection has a check mark. Semantic slider names, values and
 increase/decrease actions are retained even though the visual scales are absent.
 

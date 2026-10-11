@@ -65,40 +65,63 @@ Hold a switch tile to open native details (`more_info: true`, the default); set
 `more_info: false` to disable details. Releasing a hold never also toggles the entity,
 and horizontal swipes still belong to the pager. Light entities use the same
 capability-aware dialog as light cards: relay lights have only on/off; dimmable lights
-keep brightness controls while off. Switches, input booleans and fans initially offer
-on/off only. Other domains show their reported state without guessing device controls.
+keep brightness controls while off. Switches and input booleans offer on/off.
+Fans use the capability-aware controls described below. Other domains show their
+reported state without guessing device controls.
 These are small native dialogs, not the full Home Assistant web more-info frontend;
-fan speed and a free color picker are not implemented here.
+The shared light dialog also offers capability-aware colour controls (see below).
 
 Details follow live HA changes. Missing, unknown or unavailable entities can be
 inspected but cannot be operated. A refused on/off command in a switch/input-boolean/fan
-dialog leaves it open with an error; a refused tile tap clears its optimistic echo.
+dialog leaves it open with an error; a refused switch tile tap clears its optimistic
+echo. Fan tiles use the state confirmed by HA.
 Opening and closing details never sends a service call.
 
-**Separate detail target.** Set `detail_entity` on a switch entry to open another
-entity on long-press. The original `entity` still determines short-tap commands,
-tile state and availability. The target uses the existing native dialog for its
-domain: light controls, basic on/off for switches/input booleans/fans, or a
-read-only state for other domains. This does not add further domain controls.
+**Fan details.** Hold a `fan.*` switch tile to open native speed and preset
+controls. This uses the same control sheet as lights and covers. The generic sheet extensions are included in this feature, so it still works independently of light-capability or general switch long-press changes. `more_info: false` on the switch card disables fan details. Holding or
+closing a tile never changes the fan; horizontal swipes still change pages.
+
+Controls follow the entity's `supported_features`: turn-on and turn-off are
+separate capabilities, speed uses `fan.set_percentage`, and listed presets use
+`fan.set_preset_mode`. Missing flags do not imply power control. Speeds snap to
+`percentage_step` (or one percent when missing/invalid), including fractional
+steps such as a three-speed fan. The vertical fill control sends only on release and keeps a short local echo while HA confirms the new level. Zero percent is
+a speed command to stop the fan; integrations may reject it, just like other
+commands. Rejected commands keep the dialog open with an error and restore the reported level. Successful power and preset actions close it, like the existing control sheets; level changes leave it open. Incoming HA states update the controls. Unavailable entities and a disconnected HA disable
+the dialog's actions. Oscillation and direction are not exposed here.
+
+A short fan tap uses its supported `fan.turn_on` or `fan.turn_off` action,
+with state confirmed by HA. If that action is unsupported, it opens details
+instead (or does nothing with `more_info: false`). For devices whose power switch
+and fan are separate entities, keep the power switch as the tile entity and give
+its long-press an explicit `detail_entity`:
 
 ```yaml
 type: custom:nspanel-switch-card
+more_info: true
 switches:
-  - entity: switch.room_power
-    detail_entity: light.room
-    name: Room
+  - entity: switch.extractor_power
+    detail_entity: fan.extractor
+    name: Extractor
+    icon: mdi:fan
 ```
 
+The short tap, tile state and availability still use `entity`; only long-press
+uses `detail_entity`. The target domain selects the native fan, light or generic
+switch detail sheet. Missing/unavailable targets show unavailable details and
+never silently redirect commands to the power switch. Opening/closing sends no
+command. `more_info: false` still disables long-press details. Empty or non-string
+`detail_entity` values fall back to `entity`; whitespace around an ID is trimmed.
 For the single-entity shorthand, put `detail_entity` beside `entity` on the card;
-for a grid, configure it per entry in `switches`. A non-empty string is trimmed;
-missing, blank or non-string values use `entity`. An explicitly configured target
-that is unavailable or missing stays unavailable; commands never fall back to the
-original entity. `more_info: false` still disables details. No device relationship
-is inferred. Dashboard edits replace cached tile bindings, including detail targets,
-without restarting the app. Pending tap feedback from the previous configuration
-is discarded. The matching web-card extension opens HA more-info for the same
-target; older bundles ignore `detail_entity` and use the original entity.
+for a grid, configure it per entry in `switches`. Saved dashboard changes replace
+cached tile bindings without restarting the app. No device relationship is inferred.
+You can still use separate power and fan tiles instead. A direct fan tile's
+unsupported short-tap power fallback continues to open that fan's own controls.
 
+The matching web-card update honours `detail_entity` using HA's existing
+more-info dialog; older web bundles ignore it and show the original entity.
+This optional routing extension uses the combined fan/light/switch dialogs; the
+original fan feature remains available independently.
 
 The camera card is a doorbell or a driveway as a still, asked for at the card's own size and
 replaced about once a second - and only while its page is the one showing and the
@@ -133,6 +156,11 @@ never sends a command, nor does cancelling a drag. There is no new configuration
 Run `flutter test test/light_capabilities_test.dart test/light_widget_test.dart` for the
 capability and interaction regressions. `test/fixtures/light-capabilities.json` mirrors the
 web cards' fixtures. Changes to the shared sheet must also pass the complete widget suite.
+
+## Native UI conventions
+
+See [UI guidelines](UI-GUIDELINES.md) for layout, typography, colour roles,
+interaction rules and measured touch targets. Maintain these rules in that file.
 
 ## Screensaver
 
@@ -178,6 +206,47 @@ value otherwise, so the entity always tells you what the panel is doing. **Use d
 settings** drops the overrides. Nothing has to be typed on the wall and nothing goes through
 adb; the only thing the setup screen (two-finger hold) still needs is the MQTT broker itself,
 which has to exist before Home Assistant can see the device.
+
+**Display ownership and input safety.** The native app observes touches before Flutter,
+including touches in detail dialogs. Automatic sleep waits until every finger is up
+and then starts the full idle interval. A stationary finger counts as activity. Setup
+is exempt; when another app is foreground, Android/that app owns the display. The
+screensaver is above all app dialogs and waking preserves the page and open dialog.
+
+For direct display-off after 15 seconds, use `after: 15`, `sleep: true`, and
+`sleep_after: 0`. The existing MQTT/HA **Sleep after** setting can later add a visible
+screensaver interval; changing it does not wake a display that is already dark.
+Turning **Sleep** off while dark reveals the screensaver. Neither telemetry nor HA
+state updates reset the idle timer. Configuration overrides keep their usual precedence.
+
+The native-only option `keep_awake_on_proximity: true` (default false) also inhibits
+idle while the sensor detects proximity. Use `proximity_above` or `proximity_below`
+for a calibrated absolute threshold; otherwise a resting baseline is learned.
+Entry requires two readings; release uses 20% hysteresis and 500 ms debounce.
+Unchanging sensor values do not expire. A hand held near the panel is not learned
+as the new baseline. This is short-range proximity, not room occupancy sensing.
+A forced screensaver command suppresses an already-present hand until it leaves
+and approaches again. Touch and an explicit wake command can still wake immediately.
+
+Every physical screen wake starts a fixed 500 ms touch guard, including proximity,
+remote wake and a cold app start with the screen lit. A gesture begun during the
+guard is swallowed through its final release, including extra fingers and long
+presses. A new gesture at 500 ms can operate normally; no extra first tap is required.
+Waking a visible screensaver similarly consumes its wake gesture. A screen-off event
+cancels a forwarded gesture rather than committing its slider value. The guard does
+not add permissions, dashboard options or MQTT topics.
+
+Use exactly one display controller: disable competing custom sleep and wake modules
+in external panel tools when enabling native ownership. Keep their launcher/watchdog
+functions if needed. With the existing WRITE_SETTINGS grant, native ownership
+restores the configured idle interval as Android's fallback timeout, including
+firmware overrides during boot and handoff to another app. While the configured
+dashboard owns an awake display, a native display wake lock prevents Android's
+timeout from bypassing gesture and proximity activity. It does not wake the screen
+and is released on screen-off, app handoff, disabled ownership or destruction;
+this also covers panel firmware that drops the window's keep-screen-on lock after wake. The
+native sleep backend still needs local ADB; if it fails, the visible screensaver
+remains and the app logs the failure instead of claiming that the backlight is off.
 
 **Auto brightness.** The same device page has **Auto brightness** with a minimum, a maximum
 and a daylight point: at 0 lx the screen sits at the minimum, at the daylight point (500 lx by
@@ -501,16 +570,12 @@ test/            colour, config parsing, the HA protocol and MQTT against fakes
 ```
 
 
-## Native UI conventions
-
-See [UI guidelines](UI-GUIDELINES.md) for shared layout, colour roles and touch geometry.
-
 ## Light colour controls
 
 Long-press a light card or a switch tile whose `detail_entity` is a light to open
 its shared light dialog. Dimmable, tunable-white and colour lights use the same
 layout: tall unlabelled tracks, brightness on the right, then large +/− buttons.
-Horizontal shadow markers show positions. Only brightness shows a percentage; temperature
+Horizontal lines mark positions. Only brightness shows a percentage; temperature
 and hue/saturation remain available to accessibility tools without visible scales.
 The brightness fill previews the target colour. Card and action accents continue
 to follow `accent` / `follow_color`.
@@ -530,7 +595,7 @@ effect_favorites:
 
 `step_target: brightness` always adjusts brightness. With `last_used`, +/− starts
 with brightness each time the dialog opens, then follows the last completed
-slider interaction. Its thicker position marker identifies that slider. Cancelled
+slider interaction. Its thicker position line identifies that slider. Cancelled
 gestures and external HA updates do not select a target. Returning from presets
 or effects preserves it; changing colour mode or losing a capability resets to
 brightness. `step` is a percentage of the channel range (default 5: brightness /
