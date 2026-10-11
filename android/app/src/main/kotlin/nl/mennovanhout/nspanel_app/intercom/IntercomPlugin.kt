@@ -75,6 +75,7 @@ class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
                     else -> result.notImplemented()
                 }
             } catch (e: Exception) {
+                diagnostic("command", e)
                 stop()
                 result.error((e as? IntercomFailure)?.reason ?: "network", "Intercom operation failed", null)
             }
@@ -96,7 +97,14 @@ class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
     private fun emit(s: Session, kind: String, extra: Map<String, Any> = emptyMap()) {
         main.post { if (session === s && !s.closed.get()) events?.success(mapOf("session" to s.id, "kind" to kind) + extra) }
     }
+    private fun diagnostic(stage: String, e: Exception) {
+        // Class and code location only: exception messages/URIs may contain secrets.
+        val location = e.stackTrace.firstOrNull { it.className.startsWith("nl.mennovanhout") }
+        android.util.Log.w("Intercom", "$stage:${e.javaClass.simpleName}:${location?.methodName}:${location?.lineNumber}")
+    }
+    fun stopped() { stop("background") }
     private fun failed(s: Session, e: Exception) {
+        diagnostic("media", e)
         main.post {
             if (session === s) {
                 events?.success(mapOf("session" to s.id, "kind" to "error", "reason" to ((e as? IntercomFailure)?.reason ?: "network")))
