@@ -94,8 +94,9 @@ class _SwitchCardState extends State<SwitchCard> {
 
   /// The state as shown: the tap's for echo_ms after it, then HA's.
   bool _isOn(_Sw s) {
-    if (s.local != null && DateTime.now().isBefore(s.localUntil))
+    if (s.local != null && DateTime.now().isBefore(s.localUntil)) {
       return s.local!;
+    }
     s.local = null;
     return widget.env.states.get(s.entity)?.state == 'on';
   }
