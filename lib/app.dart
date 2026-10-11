@@ -497,6 +497,7 @@ class _DashboardState extends State<Dashboard> {
       b.setting('sleep', s.sleep ? 'ON' : 'OFF');
       b.setting('sleep_after', s.sleepAfterSeconds.toString());
       b.setting('proximity_delta', s.proximityDelta.round().toString());
+      b.setting('proximity_above', (s.proximityAbove ?? 0).round().toString());
     }
     b.setting('auto_brightness', st.autoBrightness ? 'ON' : 'OFF');
     b.setting('brightness_min', st.brightnessMin.toString());
@@ -519,6 +520,13 @@ class _DashboardState extends State<Dashboard> {
         st.overrides = {...?st.overrides, 'sleep_after': n.round()};
       case 'proximity_delta' when n != null:
         st.overrides = {...?st.overrides, 'proximity_delta': n.toDouble()};
+      case 'proximity_above'
+          when n != null &&
+              n.isFinite &&
+              n >= 0 &&
+              n <= 65536 &&
+              n == n.round():
+        st.overrides = {...?st.overrides, 'proximity_above': n.toInt()};
       case 'auto_brightness':
         st.brightness = {...?st.brightness, 'auto': on};
         _follower.reset();

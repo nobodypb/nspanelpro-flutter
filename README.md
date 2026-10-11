@@ -284,6 +284,14 @@ or 15% of the resting level, whichever is more. The setup screen (two-finger hol
 it as you walk up, and if you would rather be explicit, `proximity_below: 30` or
 `proximity_above: 90` wake on an absolute threshold instead.
 
+With MQTT enabled, the Home Assistant device page exposes **Absolute wake threshold
+(0 = adaptive)**. It sets `proximity_above` for this panel, persists across restarts,
+and overrides the dashboard card. Lower positive values react to smaller sensor
+changes; they are raw readings, not centimeters. `0` removes the absolute upper
+threshold and returns to the learned resting level. The separate **Adaptive wake
+sensitivity** number controls `proximity_delta` only while no absolute bound is set.
+Use **Use dashboard settings** to discard panel-specific overrides.
+
 **The frosted clock is the one `BackdropFilter` in this app**, the exact thing the cards avoid
 on this GPU. It is affordable here because nothing else is happening: the blur re-rasterises
 only while the clock slides once a minute. `frost: false` if it ever stutters. Pictures are
