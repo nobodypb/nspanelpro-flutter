@@ -454,6 +454,7 @@ class SheetButton extends StatelessWidget {
     this.size,
     this.color = Ns.surface,
     this.dimWhenDisabled = true,
+    this.selected = false,
   });
   final String? label;
   final VoidCallback? onTap;
@@ -461,11 +462,13 @@ class SheetButton extends StatelessWidget {
   final double? size;
   final Color color;
   final bool dimWhenDisabled;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
     enabled: onTap != null,
+    selected: selected ? true : null,
     label: label,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -480,6 +483,14 @@ class SheetButton extends StatelessWidget {
             color: color,
             borderRadius: BorderRadius.circular(SheetMetrics.buttonRadius),
           ),
+          foregroundDecoration: selected
+              ? BoxDecoration(
+                  border: Border.all(color: Ns.text, width: 2),
+                  borderRadius: BorderRadius.circular(
+                    SheetMetrics.buttonRadius,
+                  ),
+                )
+              : null,
           child: child,
         ),
       ),

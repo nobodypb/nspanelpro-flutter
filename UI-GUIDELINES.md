@@ -173,6 +173,13 @@ fans, with fixed Back and Close. Configured effects are explicitly checked again
 capabilities and selection has a check mark. Semantic slider names, values and
 increase/decrease actions are retained even though the visual scales are absent.
 
+An active effect choice stays at full opacity even though repeating the command
+is blocked. Use the existing 16% accent tint composited over opaque `surface`,
+an inset 2px `text` outline and a check mark. The outline does not change the
+220×76 hit area. Keep light text on this dark background; selection must remain
+clear even with a dark custom accent. Only actual unavailability or an unsupported
+effect uses disabled dimming. Expose selection to accessibility as well.
+
 Light controls keep their normal opacity during a drag and while a command is
 pending. Temporary input locks must not fade neighbouring sliders, steps, actions
 or choices. Unavailable devices, unsupported choices and range limits still use
