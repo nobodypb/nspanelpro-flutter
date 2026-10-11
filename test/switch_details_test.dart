@@ -58,6 +58,7 @@ Future<(FakeHa, HaStates)> mount(
   Map<String, dynamic> attributes = const {},
   Map<String, dynamic> config = const {},
   bool refuses = false,
+  ValueNotifier<Map<String, dynamic>>? configUpdates,
   Map<String, Map<String, dynamic>> extraStates = const {},
 }) async {
   tester.view.physicalSize = const Size(480, 480);
@@ -82,6 +83,8 @@ Future<(FakeHa, HaStates)> mount(
   addTearDown(() {
     unawaited(conn.dispose());
   });
+  final updates = configUpdates ?? ValueNotifier(config);
+  if (configUpdates == null) addTearDown(updates.dispose);
   await tester.pumpWidget(
     MaterialApp(
       theme: Ns.theme(),
@@ -90,12 +93,15 @@ Future<(FakeHa, HaStates)> mount(
           children: [
             Align(
               alignment: Alignment.topCenter,
-              child: SwitchCard(
-                config: {'entity': entity, 'height': 160, ...config},
-                env: PanelEnv(
-                  states: states,
-                  conn: conn,
-                  settings: Settings(url: 'http://fake', token: 'test'),
+              child: ValueListenableBuilder<Map<String, dynamic>>(
+                valueListenable: updates,
+                builder: (_, current, _) => SwitchCard(
+                  config: {'entity': entity, 'height': 160, ...current},
+                  env: PanelEnv(
+                    states: states,
+                    conn: conn,
+                    settings: Settings(url: 'http://fake', token: 'test'),
+                  ),
                 ),
               ),
             ),
@@ -116,6 +122,44 @@ Future<void> open(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'HA config replacing cached tiles updates hold target without restart',
+    (t) async {
+      final config = ValueNotifier<Map<String, dynamic>>({});
+      addTearDown(config.dispose);
+      final (fake, _) = await mount(
+        t,
+        configUpdates: config,
+        extraStates: {
+          'fan.speed': st('fan.speed', 'on', {
+            'supported_features': 17,
+            'percentage': 40,
+          }),
+        },
+      );
+      await open(t);
+      expect(find.byType(FanSheet), findsNothing);
+      await t.tap(find.byKey(const ValueKey('sheet-close')));
+      await t.pumpAndSettle();
+      config.value = {
+        'switches': [
+          {'entity': 'switch.test', 'detail_entity': 'fan.speed'},
+        ],
+      };
+      await t.pump();
+      await open(t);
+      expect(find.byType(FanSheet), findsOneWidget);
+      expect(find.text('40%'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('sheet-close')));
+      await t.pumpAndSettle();
+      config.value = {'entity': 'switch.test'};
+      await t.pump();
+      await open(t);
+      expect(find.byType(FanSheet), findsNothing);
+      expect(fake.calls, isEmpty);
+    },
+  );
+
   for (final listForm in [false, true]) {
     testWidgets(
       'detail target routes hold to fan but tap to switch (list=$listForm)',

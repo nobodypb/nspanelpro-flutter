@@ -113,7 +113,8 @@ never silently redirect commands to the power switch. Opening/closing sends no
 command. `more_info: false` still disables long-press details. Empty or non-string
 `detail_entity` values fall back to `entity`; whitespace around an ID is trimmed.
 For the single-entity shorthand, put `detail_entity` beside `entity` on the card;
-for a grid, configure it per entry in `switches`. No device relationship is inferred.
+for a grid, configure it per entry in `switches`. Saved dashboard changes replace
+cached tile bindings without restarting the app. No device relationship is inferred.
 You can still use separate power and fan tiles instead. A direct fan tile's
 unsupported short-tap power fallback continues to open that fan's own controls.
 
