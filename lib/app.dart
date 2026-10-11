@@ -435,25 +435,36 @@ class _DashboardState extends State<Dashboard> {
 
   /// `index` is the page's place in the pager, or -1 for the warm-up's
   /// hidden copy, which must never count as on screen.
-  Widget _page(
-    PanelPage p, {
-    required bool animate,
-    required int index,
-  }) => PageScope(
-    index: index,
-    shown: _shownPage,
-    awake: _awake,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < p.cards.length; i++) ...[
-          if (i > 0) const SizedBox(height: Ns.gap),
-          // cards rise into place, staggered, when a page first shows
-          Enter(index: i, animate: animate, child: buildCard(p.cards[i], _env)),
-        ],
-      ],
-    ),
-  );
+  Widget _page(PanelPage p, {required bool animate, required int index}) =>
+      PageScope(
+        index: index,
+        shown: _shownPage,
+        awake: _awake,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < p.cards.length; i++) ...[
+              if (i > 0) const SizedBox(height: Ns.gap),
+              // cards rise into place, staggered, when a page first shows
+              if (p.cards.length == 1 &&
+                  cardType(p.cards[i]) == 'nspanel-camera-card')
+                Flexible(
+                  child: Enter(
+                    index: i,
+                    animate: animate,
+                    child: buildCard(p.cards[i], _env),
+                  ),
+                )
+              else
+                Enter(
+                  index: i,
+                  animate: animate,
+                  child: buildCard(p.cards[i], _env),
+                ),
+            ],
+          ],
+        ),
+      );
 
   void _publishUpdate() {
     final u = widget.updater;

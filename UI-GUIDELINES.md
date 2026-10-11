@@ -232,3 +232,8 @@ No diagnostics cover the picture. Respect the configured contain/cover mode for
 both image sources, keep the last still until the first decoded live frame, and
 return to polling without changing geometry after End. Existing cameras without
 a configured local capability retain their layout.
+
+A sole camera card must also receive the available page-height constraint. On the
+real panel with a 432px app viewport, the 12px outer padding leaves a 456×408 card:
+its picture becomes 456×300 while all four targets stay 108×76, fully visible.
+Never validate touch geometry only against a nominal 480px screen height.

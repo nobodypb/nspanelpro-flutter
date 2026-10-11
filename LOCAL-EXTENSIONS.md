@@ -12,7 +12,7 @@ repository; no submodule or separate release coordination is required.
 | `lib/local/doorbird/` | Host adapter, private profiles and inline camera presentation. Adapts shared UI and host capabilities to the plugin. |
 | `lib/local/extensions.dart` | Single composition point: local camera capability, audio ownership, profile provisioning and complete settings reset. |
 | `lib/extensions/camera_interaction.dart` | Optional generic camera-view builder and a Listenable flag suspending still-image polling. No DoorBird configuration or media types. |
-| `lib/app.dart` | Constructs/disposes local extensions and passes generic display/navigation holds and announcement interruption. Routes imported private settings to the composition point. |
+| `lib/app.dart` | Constructs/disposes local extensions and passes generic display/navigation holds and announcement interruption. Routes imported private settings to the composition point. A sole camera card receives bounded page height so its controls remain visible with system insets. |
 | `lib/cards/{env,camera_card}.dart` | Optional camera-view capability with an unlabelled still-image widget. Without it, the existing still-image camera works. |
 | `lib/config/settings.dart` | Optional asynchronous provisioning/clear hooks. It does not store or interpret private feature settings. |
 | `lib/util/{display,navigation}_controller.dart` | Generic counted, idempotently released holds. These shared capabilities are not owned by DoorBird. |
