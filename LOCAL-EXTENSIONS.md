@@ -9,11 +9,11 @@ repository; no submodule or separate release coordination is required.
 | Area | Owner and contract |
 | --- | --- |
 | `packages/doorbird_intercom/` | Independent Flutter/Android media plugin, dependencies, native build, sources, licenses, controller and codec tests. Never imports the host. |
-| `lib/local/doorbird/` | Host adapter, private profiles and control-sheet presentation. Adapts shared UI and host capabilities to the plugin. |
+| `lib/local/doorbird/` | Host adapter, private profiles and inline camera presentation. Adapts shared UI and host capabilities to the plugin. |
 | `lib/local/extensions.dart` | Single composition point: local camera capability, audio ownership, profile provisioning and complete settings reset. |
-| `lib/extensions/camera_interaction.dart` | Optional generic camera action and a Listenable flag suspending still-image polling. No DoorBird configuration or media types. |
+| `lib/extensions/camera_interaction.dart` | Optional generic camera-view builder and a Listenable flag suspending still-image polling. No DoorBird configuration or media types. |
 | `lib/app.dart` | Constructs/disposes local extensions and passes generic display/navigation holds and announcement interruption. Routes imported private settings to the composition point. |
-| `lib/cards/{env,camera_card}.dart` | Optional camera capability. Without it, the existing still-image camera works. |
+| `lib/cards/{env,camera_card}.dart` | Optional camera-view capability with an unlabelled still-image widget. Without it, the existing still-image camera works. |
 | `lib/config/settings.dart` | Optional asynchronous provisioning/clear hooks. It does not store or interpret private feature settings. |
 | `lib/util/{display,navigation}_controller.dart` | Generic counted, idempotently released holds. These shared capabilities are not owned by DoorBird. |
 | `pubspec.yaml`, `pubspec.lock` | One private path dependency; plugin registration and manifest merging are automatic. |
@@ -24,7 +24,7 @@ setup screen. Credentials retain the existing private `intercom_profiles` key;
 HA settings resaves never rewrite that key. Full local reset must call
 `LocalExtensions.clearSettings()`, which invokes the generic host clear hook.
 
-The adapter may depend on the host's sheet/palette and interfaces. The host must
+The adapter may depend on the host's sheet buttons, palette, page visibility and interfaces. Its fixed picture/status/action layout owns the transition from still to live; page departure cancels pending profile reads and closes its session. The host must
 not depend on media implementation types. `dev/check-local-extensions.py` rejects
 feature references leaking into core Dart/Android files and package imports that
 point back into the app. Tests separately cover the package and the host adapter.

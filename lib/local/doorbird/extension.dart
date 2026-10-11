@@ -4,7 +4,7 @@ import 'package:doorbird_intercom/doorbird_intercom.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../extensions/camera_interaction.dart';
-import 'intercom_sheet.dart';
+import 'camera_view.dart';
 import 'profiles.dart';
 
 /// Translate the stable host capabilities to the private media package.
@@ -41,26 +41,62 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
 
   @override
   bool get suspendsStillImages => controller.inUse;
+  Object? _owner;
+  int _request = 0;
+  bool _loading = false;
+
   @override
-  VoidCallback? action(BuildContext context, Map<String, dynamic> config) {
+  Widget? build(
+    BuildContext context,
+    Map<String, dynamic> config,
+    Widget picture,
+  ) {
     final option = config['intercom'];
     final name = option is Map ? option['profile'] : null;
     if (name is! String || name.isEmpty) return null;
-    return () => unawaited(
-      _open(context, name, config['title']?.toString() ?? 'DoorBird'),
+    return IntercomCameraView(
+      key: ValueKey('${config['entity']}:$name'),
+      controller: controller,
+      title: (config['title'] ?? config['name'] ?? 'DoorBird').toString(),
+      contain: config['fit'] == 'contain',
+      picture: picture,
+      ownsSession: (owner) => identical(_owner, owner),
+      onStart: (owner) => _open(owner, name),
+      onStop: _stop,
     );
   }
 
-  Future<void> _open(BuildContext context, String name, String title) async {
-    final profile = await loadProfile(name);
-    if (!_disposed && context.mounted) {
-      await showIntercomProbe(context, controller, profile, title);
+  Future<void> _open(Object owner, String name) async {
+    if (_disposed || _loading || controller.inUse) return;
+    _owner = owner;
+    _loading = true;
+    final request = ++_request;
+    try {
+      final profile = await loadProfile(name);
+      if (!_disposed && request == _request && identical(owner, _owner)) {
+        await controller.open(profile);
+      }
+    } finally {
+      if (request == _request) _loading = false;
     }
+  }
+
+  void _stop(Object owner) {
+    if (!identical(_owner, owner)) return;
+    _owner = null;
+    _request++;
+    _loading = false;
+    // Disposal/page changes can happen during a build. Close before another
+    // session may open, but deliver controller notifications outside that build.
+    scheduleMicrotask(() {
+      if (!_disposed && _owner == null) unawaited(controller.close());
+    });
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _request++;
     controller.removeListener(notifyListeners);
     controller.dispose();
     super.dispose();

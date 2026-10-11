@@ -187,105 +187,102 @@ class _CameraCardState extends State<CameraCard> {
         final showName = c.boolOr('show_name', true);
         final contain = c.str('fit') == 'contain';
         final frame = _frame;
-        return GestureDetector(
-          onTap: widget.env.cameraInteraction?.action(context, c),
-          child: Container(
-            height: height,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: Ns.surface,
-              borderRadius: BorderRadius.circular(Ns.radius),
-            ),
-            child: LayoutBuilder(
-              builder: (context, box) {
-                _size = Size(
-                  box.maxWidth.isFinite ? box.maxWidth : 480,
-                  height,
-                );
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (frame == null || _fails >= 3)
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(MdiIcons.cctv, size: 44, color: Ns.muted),
-                          const SizedBox(height: 8),
-                          Text(
-                            gone
-                                ? 'Camera unavailable'
-                                : _fails >= 3
-                                ? 'No picture'
-                                : 'Loading…',
-                            style: const TextStyle(
-                              color: Ns.muted,
-                              fontSize: 15,
+        return Container(
+          height: height,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Ns.surface,
+            borderRadius: BorderRadius.circular(Ns.radius),
+          ),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              _size = Size(box.maxWidth.isFinite ? box.maxWidth : 480, height);
+              Widget picture(bool label) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (frame == null || _fails >= 3)
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(MdiIcons.cctv, size: 44, color: Ns.muted),
+                        const SizedBox(height: 8),
+                        Text(
+                          gone
+                              ? 'Camera unavailable'
+                              : _fails >= 3
+                              ? 'No picture'
+                              : 'Loading…',
+                          style: const TextStyle(color: Ns.muted, fontSize: 15),
+                        ),
+                      ],
+                    )
+                  else
+                    ColoredBox(
+                      color: Colors.black,
+                      child: Image.memory(
+                        frame,
+                        fit: contain ? BoxFit.contain : BoxFit.cover,
+                        // the new still replaces the old one without a blank between
+                        gaplessPlayback: true,
+                        // decoded at the card's size, not the camera's
+                        cacheWidth:
+                            (_size.width *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                        errorBuilder: (_, _, _) => const SizedBox(),
+                      ),
+                    ),
+                  if (label && frame != null && _fails < 3) ...[
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 72,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [Color(0x8C000000), Color(0x00000000)],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      right: 20,
+                      bottom: 14,
+                      child: Text(
+                        c.str('title') ??
+                            c.str('name') ??
+                            friendlyName(s, _entity),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -.2,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 1),
+                              blurRadius: 4,
+                              color: Color(0x99000000),
                             ),
-                          ),
-                        ],
-                      )
-                    else
-                      ColoredBox(
-                        color: Colors.black,
-                        child: Image.memory(
-                          frame,
-                          fit: contain ? BoxFit.contain : BoxFit.cover,
-                          // the new still replaces the old one without a blank between
-                          gaplessPlayback: true,
-                          // decoded at the card's size, not the camera's
-                          cacheWidth:
-                              (_size.width *
-                                      MediaQuery.devicePixelRatioOf(context))
-                                  .round(),
-                          errorBuilder: (_, _, _) => const SizedBox(),
+                          ],
                         ),
                       ),
-                    if (showName && frame != null && _fails < 3) ...[
-                      const Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: 72,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [Color(0x8C000000), Color(0x00000000)],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: 14,
-                        child: Text(
-                          c.str('title') ??
-                              c.str('name') ??
-                              friendlyName(s, _entity),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -.2,
-                            shadows: [
-                              Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 4,
-                                color: Color(0x99000000),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
-                );
-              },
-            ),
+                ],
+              );
+              return widget.env.cameraInteraction?.build(
+                    context,
+                    c,
+                    picture(false),
+                  ) ??
+                  picture(showName);
+            },
           ),
         );
       },
