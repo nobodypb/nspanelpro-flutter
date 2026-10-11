@@ -37,6 +37,7 @@ class FillCard extends StatefulWidget {
     this.chips = const [],
     this.chips2 = const [],
     this.opaqueChips = false,
+    this.responsiveLightLayout = false,
     this.dragTravel,
     this.onTap,
     this.onLongPress,
@@ -59,6 +60,7 @@ class FillCard extends StatefulWidget {
   final List<ChipSpec> chips;
   final List<ChipSpec> chips2;
   final bool opaqueChips;
+  final bool responsiveLightLayout;
   final double? dragTravel;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -183,13 +185,25 @@ class _FillCardState extends State<FillCard> {
                       style: TextStyle(
                           color: Ns.danger, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1)),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              LayoutBuilder(builder: (context, constraints) {
+                final narrow = widget.responsiveLightLayout && constraints.maxWidth < 180;
+                return Padding(
+                padding: EdgeInsets.fromLTRB(narrow ? 16 : 20, 18, narrow ? 16 : 20, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    if (narrow)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.leading != null) widget.leading!,
+                          if (widget.value != null)
+                            FittedBox(fit: BoxFit.scaleDown, child: widget.value!),
+                        ],
+                      )
+                    else Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (widget.leading != null) widget.leading!,
@@ -201,7 +215,7 @@ class _FillCardState extends State<FillCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
+                        Text(widget.title, maxLines: narrow ? 2 : 1, overflow: TextOverflow.ellipsis, style: nameStyle),
                         Text(widget.sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
                         if (widget.chips.isNotEmpty)
                           ChipRow(chips: widget.chips, on: widget.on, opaque: widget.opaqueChips),
@@ -211,7 +225,8 @@ class _FillCardState extends State<FillCard> {
                     ),
                   ],
                 ),
-              ),
+              );
+              }),
             ],
           ),
         ),
