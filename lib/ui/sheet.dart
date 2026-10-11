@@ -4,6 +4,18 @@ import 'package:flutter/services.dart';
 import '../util/color.dart';
 import 'theme.dart';
 
+/// Existing native control-sheet geometry, in logical pixels.
+abstract final class SheetMetrics {
+  static const padding = 16.0;
+  static const gap = 14.0;
+  static const actionGap = 8.0;
+  static const closeSize = 56.0;
+  static const stepWidth = 96.0;
+  static const actionHeight = 76.0;
+  static const buttonRadius = 18.0;
+  static const levelRadius = 20.0;
+}
+
 class SheetAction {
   const SheetAction({
     required this.label,
@@ -11,12 +23,13 @@ class SheetAction {
     this.primary = false,
     this.close = true,
     this.enabled = true,
+    this.selected = false,
     required this.run,
   });
   final String label;
   final IconData? icon;
   final bool primary;
-  final bool enabled;
+  final bool enabled, selected;
   final bool close;
   final VoidCallback run;
 }
@@ -84,6 +97,10 @@ class ControlSheet extends StatefulWidget {
     required this.actions,
     this.onInput,
     this.onCommit,
+    this.snapValue,
+    this.stepValue,
+    this.body,
+    this.stateColor = Ns.muted,
   });
 
   final bool showLevel, enabled;
@@ -94,6 +111,10 @@ class ControlSheet extends StatefulWidget {
   final List<SheetAction> actions;
   final ValueChanged<double>? onInput;
   final ValueChanged<double>? onCommit;
+  final double Function(double)? snapValue;
+  final double Function(double, int)? stepValue;
+  final Widget? body;
+  final Color stateColor;
 
   @override
   State<ControlSheet> createState() => _SheetState();
@@ -107,13 +128,17 @@ class _SheetState extends State<ControlSheet> {
   @override
   void didUpdateWidget(ControlSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.enabled || !widget.showLevel) _dragging = false;
-    if (!_dragging && widget.value != oldWidget.value) _v = widget.value;
+    if (!widget.enabled || !widget.showLevel) {
+      _dragging = false;
+      _cancelled = true;
+      _v = widget.value;
+    }
+    if (!_dragging) _v = widget.value;
   }
 
   void _set(double v, {bool commit = false}) {
     if (!widget.enabled || !widget.showLevel) return;
-    _v = v.clamp(0.0, 1.0);
+    _v = (widget.snapValue?.call(v) ?? v).clamp(0.0, 1.0);
     setState(() {});
     if (commit) {
       widget.onCommit?.call(_v);
@@ -124,7 +149,10 @@ class _SheetState extends State<ControlSheet> {
 
   void _stepBy(double delta) {
     HapticFeedback.lightImpact();
-    _set(_v + delta / 100, commit: true);
+    _set(
+      widget.stepValue?.call(_v, delta < 0 ? -1 : 1) ?? _v + delta / 100,
+      commit: true,
+    );
   }
 
   @override
@@ -134,7 +162,7 @@ class _SheetState extends State<ControlSheet> {
       color: Colors.transparent,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(SheetMetrics.padding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -156,8 +184,10 @@ class _SheetState extends State<ControlSheet> {
                         ),
                         Text(
                           widget.state,
-                          style: const TextStyle(
-                            color: Ns.muted,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: widget.stateColor,
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                           ),
@@ -165,15 +195,19 @@ class _SheetState extends State<ControlSheet> {
                       ],
                     ),
                   ),
-                  _Square(
-                    size: 56,
+                  SheetButton(
+                    key: const ValueKey('sheet-close'),
+                    label: 'Close',
+                    size: SheetMetrics.closeSize,
                     onTap: () => Navigator.of(context).pop(),
                     child: const Icon(Icons.close, color: Ns.text, size: 26),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              if (!widget.showLevel)
+              const SizedBox(height: SheetMetrics.gap),
+              if (widget.body != null)
+                Expanded(child: widget.body!)
+              else if (!widget.showLevel)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -203,9 +237,14 @@ class _SheetState extends State<ControlSheet> {
                                   _cancelled = false;
                                 },
                                 onPointerCancel: (_) {
-                                  _cancelled = true;
+                                  setState(() {
+                                    _cancelled = true;
+                                    _dragging = false;
+                                    _v = widget.value;
+                                  });
                                 },
                                 child: GestureDetector(
+                                  key: const ValueKey('sheet-level'),
                                   behavior: HitTestBehavior.opaque,
                                   onTapUp: (d) => _set(
                                     fromY(d.localPosition.dy),
@@ -218,7 +257,10 @@ class _SheetState extends State<ControlSheet> {
                                   onVerticalDragUpdate: (d) =>
                                       _set(fromY(d.localPosition.dy)),
                                   onVerticalDragCancel: () {
-                                    _dragging = false;
+                                    setState(() {
+                                      _dragging = false;
+                                      _v = widget.value;
+                                    });
                                   },
                                   onVerticalDragEnd: (_) {
                                     final commit = _dragging && !_cancelled;
@@ -229,7 +271,9 @@ class _SheetState extends State<ControlSheet> {
                                     clipBehavior: Clip.antiAlias,
                                     decoration: BoxDecoration(
                                       color: Ns.surface,
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(
+                                        SheetMetrics.levelRadius,
+                                      ),
                                     ),
                                     child: Stack(
                                       fit: StackFit.expand,
@@ -281,14 +325,18 @@ class _SheetState extends State<ControlSheet> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: SheetMetrics.gap),
                         SizedBox(
-                          width: 96,
+                          width: SheetMetrics.stepWidth,
                           child: Column(
                             children: [
                               Expanded(
-                                child: _Square(
-                                  onTap: () => _stepBy(widget.step),
+                                child: SheetButton(
+                                  key: const ValueKey('sheet-increase'),
+                                  label: 'Increase',
+                                  onTap: widget.enabled && _v < 1
+                                      ? () => _stepBy(widget.step)
+                                      : null,
                                   child: const Icon(
                                     Icons.add,
                                     color: Ns.text,
@@ -296,10 +344,14 @@ class _SheetState extends State<ControlSheet> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 14),
+                              const SizedBox(height: SheetMetrics.gap),
                               Expanded(
-                                child: _Square(
-                                  onTap: () => _stepBy(-widget.step),
+                                child: SheetButton(
+                                  key: const ValueKey('sheet-decrease'),
+                                  label: 'Decrease',
+                                  onTap: widget.enabled && _v > 0
+                                      ? () => _stepBy(-widget.step)
+                                      : null,
                                   child: const Icon(
                                     Icons.remove,
                                     color: Ns.text,
@@ -315,9 +367,9 @@ class _SheetState extends State<ControlSheet> {
                   ),
                 ),
               if (widget.actions.isNotEmpty) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: SheetMetrics.gap),
                 SizedBox(
-                  height: 76,
+                  height: SheetMetrics.actionHeight,
                   child: Row(
                     children: [
                       for (
@@ -325,11 +377,15 @@ class _SheetState extends State<ControlSheet> {
                         i < widget.actions.length && i < 4;
                         i++
                       ) ...[
-                        if (i > 0) const SizedBox(width: 8),
+                        if (i > 0)
+                          const SizedBox(width: SheetMetrics.actionGap),
                         Expanded(
-                          child: _Square(
+                          child: SheetButton(
+                            label: widget.actions[i].label,
                             color: widget.actions[i].primary
                                 ? widget.accent
+                                : widget.actions[i].selected
+                                ? widget.accent.withValues(alpha: .16)
                                 : Ns.surface,
                             onTap: !widget.enabled || !widget.actions[i].enabled
                                 ? null
@@ -381,33 +437,41 @@ class _SheetState extends State<ControlSheet> {
   }
 }
 
-class _Square extends StatelessWidget {
-  const _Square({
+class SheetButton extends StatelessWidget {
+  const SheetButton({
+    super.key,
+    this.label,
     required this.onTap,
     required this.child,
     this.size,
     this.color = Ns.surface,
   });
+  final String? label;
   final VoidCallback? onTap;
   final Widget child;
   final double? size;
   final Color color;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: onTap,
-    child: Opacity(
-      opacity: onTap == null ? .35 : 1,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(18),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    enabled: onTap != null,
+    label: label,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Opacity(
+        opacity: onTap == null ? .35 : 1,
+        child: Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(SheetMetrics.buttonRadius),
+          ),
+          child: child,
         ),
-        child: child,
       ),
     ),
   );

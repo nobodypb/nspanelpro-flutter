@@ -78,18 +78,16 @@ echo. Fan tiles use the state confirmed by HA.
 Opening and closing details never sends a service call.
 
 **Fan details.** Hold a `fan.*` switch tile to open native speed and preset
-controls. This works independently of light details or general switch long-press
-support. `more_info: false` on the switch card disables fan details. Holding or
+controls. This uses the same control sheet as lights and covers. The generic sheet extensions are included in this feature, so it still works independently of light-capability or general switch long-press changes. `more_info: false` on the switch card disables fan details. Holding or
 closing a tile never changes the fan; horizontal swipes still change pages.
 
 Controls follow the entity's `supported_features`: turn-on and turn-off are
 separate capabilities, speed uses `fan.set_percentage`, and listed presets use
 `fan.set_preset_mode`. Missing flags do not imply power control. Speeds snap to
 `percentage_step` (or one percent when missing/invalid), including fractional
-steps such as a three-speed fan. A slider sends only on release. Zero percent is
+steps such as a three-speed fan. The vertical fill control sends only on release and keeps a short local echo while HA confirms the new level. Zero percent is
 a speed command to stop the fan; integrations may reject it, just like other
-commands. Rejected commands keep the dialog open with an error, and incoming HA
-states update the controls. Unavailable entities and a disconnected HA disable
+commands. Rejected commands keep the dialog open with an error and restore the reported level. Successful power and preset actions close it, like the existing control sheets; level changes leave it open. Incoming HA states update the controls. Unavailable entities and a disconnected HA disable
 the dialog's actions. Oscillation and direction are not exposed here.
 
 A short fan tap uses its supported `fan.turn_on` or `fan.turn_off` action,
@@ -144,6 +142,73 @@ never sends a command, nor does cancelling a drag. There is no new configuration
 Run `flutter test test/light_capabilities_test.dart test/light_widget_test.dart` for the
 capability and interaction regressions. `test/fixtures/light-capabilities.json` mirrors the
 web cards' fixtures. Changes to the shared sheet must also pass the complete widget suite.
+
+## Native UI conventions
+
+New controls should reuse `ControlSheet`, `SheetButton`, `SheetMetrics` and the
+`Ns` palette instead of introducing Material sliders, pills or theme-derived
+button colours. These conventions are extracted from the existing light, cover
+and climate sheets in `lib/ui/sheet.dart`, the cards in `lib/ui/fill_card.dart`,
+and the corresponding web bundle. Native measurements below are the reference;
+the web sheet has some different radii and text sizes.
+
+- Preserve context: the sheet is transparent over a 72% ground-colour scrim,
+  with a 180 ms fade. Title/state stay at the upper left, Close at the upper
+  right, the main control in the centre and actions along the bottom.
+- Use large rounded rectangles: cards have radius 22, level surfaces 20 and
+  sheet buttons 18. Secondary buttons use `Ns.surface` (`#16191F`) with
+  `Ns.text` (`#F2F4F7`); a primary action uses the card accent with dark text.
+  Selected secondary actions may use a 16% accent tint. Default fan accent is
+  amber (`#FFB74A`), not the app theme's Material button colour.
+- Keep the hierarchy: title 22/700, state 15/500 in `Ns.muted` (`#98A1B0`),
+  level 44/700 with tabular digits. Action labels are 14/600 with 24px icons;
+  step icons are 34px. Use `Ns.danger` (`#F87171`) for command errors.
+- Levels use the full vertical fill surface, with large plus/minus controls
+  to its right. Dragging updates locally; release commits one command. A tap
+  sets an absolute level; plus/minus advance one supported step. Cancellation,
+  opening, closing and browsing choices never actuate a device. Keep local
+  echo while awaiting state, and roll back rejected commands.
+- Offer one contextual power action, not an On/Off pair. Successful power or
+  preset selection closes the dialog; failure stays visible for retry. Show
+  only supported controls and disable unavailable or pending actions.
+- Keep at most four equal-width bottom actions. More fan presets open an
+  explicit chooser with two columns of 76px-high tiles, a fixed Back action
+  and the same Close button. Scroll the choices, never shrink their hitboxes.
+
+### Touch geometry
+
+Sizes are **logical pixels**, not icon sizes. At the tested Pro 86 configuration
+(480×480 pixels, Android density 160) they also equal physical pixel counts.
+Insets and larger accessibility text can change the available content area.
+The figures below describe a 480×480 viewport with no SafeArea inset, normal
+text size and one bottom action row. Widget tests compare the actual fan and
+light hit rectangles, including a tap near a button corner.
+
+| Element | Touch area / geometry |
+| --- | --- |
+| Sheet outer padding | 16 on all sides; usable width 448 |
+| Close | 56 × 56; icon only 26 |
+| Main vertical level surface | 338 × 288; entire rectangle is interactive |
+| Plus and minus | each 96 × 137, separated vertically by 14 |
+| Bottom action row | height 76; 8 between buttons |
+| One / two / three / four bottom actions | width 448 / 220 / 144 / 106 each |
+| Preset chooser tile | 220 × 76; 8 between columns and rows |
+| Existing card preset chip | height 56; width shares the row; 8 between chips |
+| Existing switch/button tile | entire tile is the target; configured height/columns and 10px grid gaps determine size |
+
+The sheet body height is `H − safeInsets − 32 − 56 − 14 − (76 + 14)` when
+there are bottom actions; without them the body gets the additional 90px.
+Its level width is `W − safeInsets − 32 − 96 − 14`. Each step button gets
+`(bodyHeight − 14) / 2`. The 52×52 card icon box is decoration inside a larger
+card target, not a separate small button.
+
+For new panel controls, preserve **at least 56×56** as the project touch-target
+floor, and retain the larger 76px action rows and 96px step column wherever the
+existing sheet uses them. This is a convention derived from this UI, not a claim
+that every historical configurable layout enforces a universal minimum. Measure
+actual targets at the intended viewport; a large glyph alone does not establish
+a large target. Disabled targets are visibly subdued and must not forward a tap
+to the dashboard. Keep feedback governed by the panel's existing settings.
 
 ## Screensaver
 

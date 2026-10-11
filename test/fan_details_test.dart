@@ -11,6 +11,8 @@ import 'package:nspanel_app/config/settings.dart';
 import 'package:nspanel_app/ha/connection.dart';
 import 'package:nspanel_app/ha/states.dart';
 import 'package:nspanel_app/ui/theme.dart';
+import 'package:nspanel_app/ui/sheet.dart';
+import 'package:nspanel_app/cards/light_card.dart';
 
 import 'connection_test.dart' show FakeHa, st;
 
@@ -189,153 +191,160 @@ void main() {
     },
   );
 
+  Finder control(String name) => find.byKey(ValueKey('sheet-$name'));
+  ControlSheet sheet(WidgetTester t) =>
+      t.widget<ControlSheet>(find.byType(ControlSheet));
+  Future<void> close(WidgetTester t) async {
+    await t.tap(control('close'));
+    await t.pumpAndSettle();
+  }
+
   testWidgets(
-    'hold, release and close send no command on standalone upstream',
-    (tester) async {
-      final (fake, _, _) = await mount(tester);
-      await open(tester);
+    'hold and close are service-free; standalone short tap still powers fan',
+    (t) async {
+      final (fake, _, _) = await mount(t);
+      await open(t);
       expect(fake.calls, isEmpty);
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
+      await close(t);
       expect(fake.calls, isEmpty);
-      await tester.tap(find.text('Test fan'));
-      await tester.pump();
+      await t.tap(find.text('Test fan'));
+      await t.pump();
       expect(fake.calls, ['fan.turn_on {"entity_id":"fan.test"}']);
     },
   );
 
-  testWidgets('hood tap opens speed without unsupported turn_on', (
-    tester,
+  testWidgets('hood tap opens shared sheet without unsupported power on', (
+    t,
   ) async {
     final (fake, _, _) = await mount(
-      tester,
+      t,
       attributes: {'supported_features': 17, 'percentage_step': 20},
     );
-    await tester.tap(find.text('Test fan'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FanSheet), findsOneWidget);
+    await t.tap(find.text('Test fan'));
+    await t.pumpAndSettle();
+    expect(find.byType(ControlSheet), findsOneWidget);
     expect(find.text('Turn on'), findsNothing);
-    expect(find.byType(ChoiceChip), findsNothing);
     expect(fake.calls, isEmpty);
-    await tester.tap(find.byTooltip('Increase speed'));
-    await tester.pump();
+    // Hit the button corner, not its glyph: its whole rectangle is a target.
+    await t.tapAt(t.getRect(control('increase')).topLeft + const Offset(2, 2));
+    await t.pump();
     expect(fake.calls, [
       'fan.set_percentage {"entity_id":"fan.test","percentage":20}',
     ]);
+    expect(find.text('20%'), findsOneWidget);
+    await close(t);
   });
 
-  testWidgets('more_info false consumes holds and unsupported taps', (
-    tester,
-  ) async {
+  testWidgets('more_info false consumes holds and unsupported taps', (t) async {
     final (fake, _, _) = await mount(
-      tester,
+      t,
       moreInfo: false,
       attributes: {'supported_features': 17},
     );
-    await tester.longPress(find.text('Test fan'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Test fan'));
-    await tester.pumpAndSettle();
+    await t.longPress(find.text('Test fan'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Test fan'));
+    await t.pumpAndSettle();
     expect(find.byType(FanSheet), findsNothing);
     expect(fake.calls, isEmpty);
   });
 
-  testWidgets('horizontal swipe and cancelled touch never send commands', (
-    tester,
+  testWidgets('horizontal swipes and cancelled touches belong to no service', (
+    t,
   ) async {
-    final (fake, _, _) = await mount(tester);
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Test fan')),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
+    final (fake, _, _) = await mount(t);
+    final gesture = await t.startGesture(t.getCenter(find.text('Test fan')));
+    await t.pump(const Duration(milliseconds: 100));
     await gesture.cancel();
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.drag(find.text('Test fan'), const Offset(-420, 0));
-    await tester.pumpAndSettle();
+    await t.pump(const Duration(milliseconds: 600));
+    await t.drag(find.text('Test fan'), const Offset(-420, 0));
+    await t.pumpAndSettle();
     expect(find.text('Next page').hitTestable(), findsOneWidget);
     expect(find.byType(FanSheet), findsNothing);
     expect(fake.calls, isEmpty);
   });
 
-  testWidgets('speed drag sends exactly one snapped command on release', (
-    tester,
-  ) async {
-    final (fake, _, _) = await mount(
-      tester,
-      attributes: {'supported_features': 17, 'percentage_step': 20},
-    );
-    await open(tester);
-    final box = tester.getRect(find.byType(Slider));
-    final gesture = await tester.startGesture(
-      Offset(box.left + 24, box.center.dy),
-    );
-    await gesture.moveTo(Offset(box.center.dx, box.center.dy));
-    await tester.pump();
-    expect(fake.calls, isEmpty);
-    await gesture.moveTo(Offset(box.right - 24, box.center.dy));
-    await tester.pump();
-    expect(fake.calls, isEmpty);
-    await gesture.up();
-    await tester.pump();
-    expect(fake.calls, [
-      'fan.set_percentage {"entity_id":"fan.test","percentage":100}',
-    ]);
-  });
-
-  testWidgets('fractional speed steps, boundaries and zero use speed service', (
-    tester,
-  ) async {
-    final (fake, states, _) = await mount(
-      tester,
-      state: 'on',
-      attributes: {
-        'supported_features': 1,
-        'percentage_step': 100 / 3,
-        'percentage': 33,
-      },
-    );
-    await open(tester);
-    await tester.tap(find.byTooltip('Increase speed'));
-    await tester.pump();
-    expect(
-      fake.calls.last,
-      'fan.set_percentage {"entity_id":"fan.test","percentage":66}',
-    );
-    await tester.tap(find.byTooltip('Decrease speed'));
-    await tester.pump();
-    expect(
-      fake.calls.last,
-      'fan.set_percentage {"entity_id":"fan.test","percentage":0}',
-    );
-    states.update(
-      fanId,
-      fan({'supported_features': 1, 'percentage': 100}, state: 'on'),
-    );
-    await tester.pump();
-    final before = fake.calls.length;
-    await tester.tap(find.byTooltip('Increase speed'));
-    await tester.pump();
-    expect(fake.calls.length, before);
-  });
+  testWidgets(
+    'vertical fill sends one snapped command on release, with stable echo',
+    (t) async {
+      final (fake, _, _) = await mount(
+        t,
+        attributes: {'supported_features': 17, 'percentage_step': 20},
+      );
+      await open(t);
+      final box = t.getRect(control('level'));
+      final gesture = await t.startGesture(
+        Offset(box.center.dx, box.bottom - 2),
+      );
+      await gesture.moveTo(box.center);
+      await t.pump();
+      expect(fake.calls, isEmpty);
+      await gesture.moveTo(Offset(box.center.dx, box.top + 2));
+      await t.pump();
+      expect(fake.calls, isEmpty);
+      await gesture.up();
+      await t.pump();
+      expect(fake.calls, [
+        'fan.set_percentage {"entity_id":"fan.test","percentage":100}',
+      ]);
+      expect(find.text('100%'), findsOneWidget);
+      await t.pump(const Duration(milliseconds: 1600));
+      expect(
+        find.text('0%'),
+        findsOneWidget,
+        reason: 'unconfirmed echo returns to HA state',
+      );
+      await close(t);
+    },
+  );
 
   testWidgets(
-    'preset-only fan follows external state and sends domain-correct action',
-    (tester) async {
+    'fractional steps advance consecutively and reach zero; limits do not resend',
+    (t) async {
       final (fake, states, _) = await mount(
-        tester,
+        t,
+        state: 'on',
+        attributes: {
+          'supported_features': 1,
+          'percentage_step': 100 / 3,
+          'percentage': 33,
+        },
+      );
+      await open(t);
+      for (final action in ['increase', 'decrease', 'decrease']) {
+        await t.tap(control(action));
+        await t.pump();
+      }
+      expect(fake.calls, [
+        'fan.set_percentage {"entity_id":"fan.test","percentage":66}',
+        'fan.set_percentage {"entity_id":"fan.test","percentage":33}',
+        'fan.set_percentage {"entity_id":"fan.test","percentage":0}',
+      ]);
+      states.update(
+        fanId,
+        fan({'supported_features': 1, 'percentage': 100}, state: 'on'),
+      );
+      await t.pump(const Duration(milliseconds: 1600));
+      await t.tap(control('increase'));
+      await t.pump();
+      expect(fake.calls.length, 3);
+      await close(t);
+    },
+  );
+
+  testWidgets(
+    'preset-only sheet follows live state and closes after successful choice',
+    (t) async {
+      final (fake, states, _) = await mount(
+        t,
         attributes: {
           'supported_features': 8,
           'preset_modes': ['auto', 'sleep'],
         },
       );
-      await open(tester);
-      expect(find.byType(Slider), findsNothing);
+      await open(t);
+      expect(control('level'), findsNothing);
       expect(find.text('Turn on'), findsNothing);
-      await tester.tap(find.text('sleep'));
-      await tester.pump();
-      expect(fake.calls, [
-        'fan.set_preset_mode {"entity_id":"fan.test","preset_mode":"sleep"}',
-      ]);
       states.update(
         fanId,
         fan({
@@ -344,144 +353,257 @@ void main() {
           'preset_mode': 'auto',
         }, state: 'on'),
       );
-      await tester.pump();
+      await t.pump();
       expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'auto'))
-            .selected,
+        sheet(t).actions.firstWhere((a) => a.label == 'auto').selected,
         isTrue,
       );
+      expect(fake.calls, isEmpty);
+      await t.tap(find.text('sleep'));
+      await t.pumpAndSettle();
+      expect(fake.calls, [
+        'fan.set_preset_mode {"entity_id":"fan.test","preset_mode":"sleep"}',
+      ]);
+      expect(find.byType(FanSheet), findsNothing);
     },
   );
 
   testWidgets(
-    'power-only fan exposes no speed; failure remains visible and retry works',
-    (tester) async {
+    'power-only: one contextual action; refusal stays open, success closes',
+    (t) async {
       final (fake, _, _) = await mount(
-        tester,
+        t,
         attributes: {'supported_features': 48},
       );
       fake.refuses = true;
-      await open(tester);
-      expect(find.byType(Slider), findsNothing);
-      await tester.tap(find.text('Turn on'));
-      await tester.pump();
-      expect(find.text('Off · Command failed'), findsOneWidget);
-      expect(find.byType(FanSheet), findsOneWidget);
+      await open(t);
+      expect(control('level'), findsNothing);
+      expect(sheet(t).actions.length, 1);
+      expect(find.text('Turn off'), findsNothing);
+      await t.tap(find.text('Turn on'));
+      await t.pump();
+      expect(sheet(t).state, 'Off · Command failed');
       fake.refuses = false;
-      await tester.tap(find.text('Turn on'));
-      await tester.pump();
+      await t.tap(find.text('Turn on'));
+      await t.pumpAndSettle();
       expect(fake.calls.length, 2);
-      expect(find.textContaining('Command failed'), findsNothing);
+      expect(find.byType(FanSheet), findsNothing);
     },
   );
 
+  testWidgets('rejected level rolls back echo and can be retried', (t) async {
+    final (fake, _, _) = await mount(t);
+    fake.refuses = true;
+    await open(t);
+    await t.tap(control('increase'));
+    await t.pump();
+    expect(sheet(t).state, contains('Command failed'));
+    expect(find.text('0%'), findsOneWidget);
+    expect(find.byType(FanSheet), findsOneWidget);
+    await close(t);
+  });
+
   testWidgets(
-    'unavailable, missing and unknown states disable actions and recover',
-    (tester) async {
-      final (fake, states, _) = await mount(tester);
-      await open(tester);
+    'unavailable, missing and unknown entities stay inspectable without actions',
+    (t) async {
+      final (fake, states, _) = await mount(t);
+      await open(t);
       for (final state in ['unavailable', 'unknown']) {
         states.update(fanId, fan({'supported_features': 49}, state: state));
-        await tester.pump();
-        expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
-        await tester.tap(find.text('Turn on'));
-        await tester.pump();
+        await t.pump();
+        expect(sheet(t).enabled, isFalse);
+        await t.tap(find.text('Turn on'));
+        await t.pump();
         expect(fake.calls, isEmpty);
       }
       states.update(fanId, null);
-      await tester.pump();
-      expect(find.text('No supported controls'), findsOneWidget);
+      await t.pump();
+      expect(sheet(t).actions, isEmpty);
       states.update(
         fanId,
         fan({'supported_features': 49, 'percentage': 60}, state: 'on'),
       );
-      await tester.pump();
+      await t.pump();
       expect(find.text('60%'), findsOneWidget);
-      await tester.tap(find.text('Turn off'));
-      await tester.pump();
+      await t.tap(find.text('Turn off'));
+      await t.pumpAndSettle();
       expect(fake.calls, ['fan.turn_off {"entity_id":"fan.test"}']);
     },
   );
 
   testWidgets(
-    'pending command disables duplicate actions; disconnect recovers safely',
-    (tester) async {
-      final (fake, _, conn) = await mount(tester);
+    'pending level prevents duplicate actions; disconnect disables controls',
+    (t) async {
+      final (fake, _, conn) = await mount(t);
       fake.delay = true;
-      await open(tester);
-      await tester.tap(find.text('Turn on'));
-      await tester.pump();
-      await tester.tap(find.text('Turn on'));
-      await tester.pump();
+      await open(t);
+      await t.tap(control('increase'), warnIfMissed: false);
+      await t.pump();
+      await t.tap(control('increase'), warnIfMissed: false);
+      await t.pump();
       expect(fake.calls.length, 1);
-      expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+      expect(sheet(t).enabled, isFalse);
       fake.respond(fake.sent.last['id'] as int);
-      await tester.pump();
-      expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNotNull);
+      await t.pump();
+      expect(sheet(t).enabled, isTrue);
       await fake.close();
-      await tester.pump();
-      expect(conn.isOnline, isFalse);
-      expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+      await t.pump();
+      expect(sheet(t).enabled, isFalse);
       unawaited(conn.dispose());
-      await tester.pump();
+      await close(t);
+    },
+  );
+
+  for (final loseCapability in [false, true]) {
+    testWidgets(
+      'cancelled level gesture and capability loss send no command ($loseCapability)',
+      (t) async {
+        final (fake, states, _) = await mount(t);
+        await open(t);
+        final box = t.getRect(control('level'));
+        final gesture = await t.startGesture(
+          Offset(box.center.dx, box.bottom - 2),
+        );
+        await gesture.moveTo(box.center);
+        await t.pump();
+        if (loseCapability) {
+          states.update(fanId, fan({'supported_features': 48}));
+          await t.pump();
+          await gesture.up();
+        } else {
+          await gesture.cancel();
+        }
+        await t.pump();
+        expect(fake.calls, isEmpty);
+        if (!loseCapability) expect(find.text('0%'), findsOneWidget);
+        await close(t);
+      },
+    );
+  }
+
+  testWidgets(
+    'all presets stay reachable with 76-high targets; browse and Back send nothing',
+    (t) async {
+      final modes = List.generate(20, (i) => 'Automatic ventilation preset $i');
+      final (fake, _, _) = await mount(
+        t,
+        attributes: {'supported_features': 57, 'preset_modes': modes},
+      );
+      await open(t);
+      await t.tap(find.text('Presets'));
+      await t.pumpAndSettle();
+      expect(fake.calls, isEmpty);
+      await t.scrollUntilVisible(
+        find.text(modes.last),
+        200,
+        scrollable: find.descendant(
+          of: find.byType(GridView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(
+        t.getSize(
+          find.ancestor(
+            of: find.text(modes.last),
+            matching: find.byType(SheetButton),
+          ),
+        ),
+        const Size(220, 76),
+      );
+      expect(t.takeException(), isNull);
+      await t.tap(find.text('Back'));
+      await t.pumpAndSettle();
+      expect(fake.calls, isEmpty);
+      await t.tap(find.text('Presets'));
+      await t.pumpAndSettle();
+      await t.scrollUntilVisible(
+        find.text(modes.last),
+        200,
+        scrollable: find.descendant(
+          of: find.byType(GridView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await t.tap(find.text(modes.last));
+      await t.pumpAndSettle();
+      expect(
+        fake.calls.single,
+        'fan.set_preset_mode {"entity_id":"fan.test","preset_mode":"${modes.last}"}',
+      );
     },
   );
 
   testWidgets(
-    'cancelled slider gesture sends nothing and restores live value',
-    (tester) async {
-      final (fake, _, _) = await mount(tester);
-      await open(tester);
-      final box = tester.getRect(find.byType(Slider));
-      final gesture = await tester.startGesture(
-        Offset(box.left + 24, box.center.dy),
+    'fan and existing light sheet share actual 480px hitboxes and geometry',
+    (t) async {
+      final (fake, states, conn) = await mount(
+        t,
+        state: 'on',
+        attributes: {'supported_features': 49, 'percentage': 40},
       );
-      await gesture.moveTo(box.center);
-      await tester.pump();
-      await gesture.cancel();
-      await tester.pump();
+      await open(t);
+      Map<String, Rect> geometry() => {
+        for (final name in ['close', 'level', 'increase', 'decrease'])
+          name: t.getRect(control(name)),
+      };
+      final fanGeometry = geometry();
+      expect(fanGeometry['close']!.size, const Size(56, 56));
+      expect(fanGeometry['level']!.size, const Size(338, 288));
+      expect(fanGeometry['increase']!.size, const Size(96, 137));
+      expect(fanGeometry['decrease']!.size, const Size(96, 137));
+      expect(
+        t.getSize(
+          find.ancestor(
+            of: find.text('Turn off'),
+            matching: find.byType(SheetButton),
+          ),
+        ),
+        const Size(448, 76),
+      );
+      expect(find.byType(Slider), findsNothing);
+      expect(find.byType(ChoiceChip), findsNothing);
+      await close(t);
+      states.update(
+        'light.test',
+        const HaState(
+          entityId: 'light.test',
+          state: 'on',
+          attributes: {
+            'friendly_name': 'Test light',
+            'brightness': 102,
+            'supported_color_modes': ['brightness'],
+          },
+        ),
+      );
+      await t.pumpWidget(
+        MaterialApp(
+          theme: Ns.theme(),
+          home: Scaffold(
+            body: LightCard(
+              config: {'entity': 'light.test', 'height': 260},
+              env: PanelEnv(
+                states: states,
+                conn: conn,
+                settings: Settings(url: 'http://fake', token: 'test'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pump();
+      await t.longPress(find.text('Test light'));
+      await t.pumpAndSettle();
+      expect(geometry(), fanGeometry);
+      final actions = t
+          .widgetList<SheetButton>(find.byType(SheetButton))
+          .where((b) => ['Low', 'Mid', 'Full', 'Turn off'].contains(b.label));
+      expect(actions.length, 4);
+      for (final action in actions) {
+        expect(t.getSize(find.byWidget(action)), const Size(106, 76));
+      }
       expect(fake.calls, isEmpty);
-      expect(find.text('0%'), findsOneWidget);
+      await close(t);
     },
   );
-
-  testWidgets('losing speed capability during drag prevents dispatch', (
-    tester,
-  ) async {
-    final (fake, states, _) = await mount(tester);
-    await open(tester);
-    final box = tester.getRect(find.byType(Slider));
-    final gesture = await tester.startGesture(
-      Offset(box.left + 24, box.center.dy),
-    );
-    await gesture.moveTo(box.center);
-    await tester.pump();
-    states.update(fanId, fan({'supported_features': 48}));
-    await tester.pump();
-    await gesture.up();
-    await tester.pump();
-    expect(fake.calls, isEmpty);
-    expect(find.byType(Slider), findsNothing);
-  });
-
-  testWidgets('long names and many presets fit 480 square without overflow', (
-    tester,
-  ) async {
-    final (fake, _, _) = await mount(
-      tester,
-      attributes: {
-        'supported_features': 57,
-        'preset_modes': List.generate(
-          20,
-          (i) => 'Automatic ventilation preset $i',
-        ),
-      },
-    );
-    await open(tester);
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(fake.calls, isEmpty);
-  });
 }
