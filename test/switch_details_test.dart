@@ -112,7 +112,7 @@ Future<void> open(WidgetTester tester) async {
 }
 
 void main() {
-  for (final domain in ['switch', 'input_boolean', 'fan', 'light']) {
+  for (final domain in ['switch', 'input_boolean', 'light']) {
     testWidgets(
       '$domain: hold and close never toggle; explicit action sends one command',
       (tester) async {

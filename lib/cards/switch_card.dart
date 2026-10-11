@@ -12,6 +12,8 @@ import '../ui/theme.dart';
 import '../util/color.dart';
 import '../util/icons.dart';
 import 'env.dart';
+import 'fan_capabilities.dart';
+import 'fan_sheet.dart';
 import 'light_sheet.dart';
 import 'switch_sheet.dart';
 
@@ -104,6 +106,10 @@ class _SwitchCardState extends State<SwitchCard> {
   }
 
   Future<void> _press(_Sw s) async {
+    if (s.entity.startsWith('fan.')) {
+      await _pressFan(s);
+      return;
+    }
     final current = widget.env.states.get(s.entity);
     if (current == null || current.isBroken) return;
     if (c.boolOr('haptics', true)) HapticFeedback.lightImpact();
@@ -130,7 +136,36 @@ class _SwitchCardState extends State<SwitchCard> {
     }
   }
 
+  void _fanDetails(_Sw sw) {
+    if (!c.boolOr('more_info', true)) return;
+    showFanSheet(context, {
+      'entity': sw.entity,
+      'name': sw.item.str('name'),
+      'accent': c['accent'],
+    }, widget.env);
+  }
+
+  Future<void> _pressFan(_Sw sw) async {
+    final state = widget.env.states.get(sw.entity);
+    if (state == null || state.isBroken) return;
+    final caps = FanCapabilities(state);
+    if (state.isOn ? !caps.turnOff : !caps.turnOn) {
+      _fanDetails(sw);
+      return;
+    }
+    // Let HA confirm fan power; a failed command must not leave a false echo.
+    await widget.env.conn.callService(
+      'fan',
+      state.isOn ? 'turn_off' : 'turn_on',
+      {'entity_id': sw.entity},
+    );
+  }
+
   void _details(_Sw sw) {
+    if (sw.entity.startsWith('fan.')) {
+      _fanDetails(sw);
+      return;
+    }
     if (!c.boolOr('more_info', true)) return;
     final config = <String, dynamic>{
       'entity': sw.entity,
