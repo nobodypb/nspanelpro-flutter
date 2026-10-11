@@ -43,6 +43,21 @@ android {
         versionName = flutter.versionName
     }
 
+    // Local integration builds coexist with the upstream-signed app.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("production") {
+            dimension = "distribution"
+            manifestPlaceholders["appLabel"] = "NSPanel"
+        }
+        create("develop") {
+            dimension = "distribution"
+            applicationIdSuffix = ".develop"
+            versionNameSuffix = "-develop"
+            manifestPlaceholders["appLabel"] = "NSPanel Develop"
+        }
+    }
+
     signingConfigs {
         if (keystorePath != null) {
             create("release") {

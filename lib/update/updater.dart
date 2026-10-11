@@ -66,6 +66,7 @@ class Updater {
   Updater({
     required this.installed,
     required this.dir,
+    this.enabled = true,
     this.repo = 'mennovanhout/nspanelpro-flutter',
     Fetch? fetch,
     Download? download,
@@ -75,6 +76,8 @@ class Updater {
         _shell = shell ?? AdbShell();
 
   final String installed;
+  /// Local integration packages must never install upstream release APKs.
+  final bool enabled;
   final Directory dir;
   final String repo;
   final Fetch _fetch;
@@ -92,10 +95,15 @@ class Updater {
 
   bool get updateAvailable {
     final l = latest.value;
-    return l != null && compareVersions(l.version, installed) > 0;
+    return enabled && l != null && compareVersions(l.version, installed) > 0;
   }
 
   Future<UpdateInfo?> check() async {
+    if (!enabled) {
+      latest.value = null;
+      status.value = 'Updates managed by local develop build';
+      return null;
+    }
     try {
       final String body;
       try {
@@ -126,6 +134,10 @@ class Updater {
 
   /// Downloads and installs. Returns only on failure (success ends the process).
   Future<bool> install([UpdateInfo? which]) async {
+    if (!enabled) {
+      status.value = 'Updates managed by local develop build';
+      return false;
+    }
     final info = which ?? latest.value;
     if (info == null || progress.value != null) return false;
     final file = File('${dir.path}/update.apk');

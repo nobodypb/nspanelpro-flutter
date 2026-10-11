@@ -12,7 +12,7 @@
     <!-- touch feedback -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
-        android:label="NSPanel"
+        android:label="${appLabel}"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

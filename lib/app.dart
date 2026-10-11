@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show appFlavor;
 import 'package:path_provider/path_provider.dart';
 
 import 'audio/announcer.dart';
@@ -32,7 +33,7 @@ import 'util/proximity.dart';
 
 /// Reported to Home Assistant as the device's sw_version. Keep in step with
 /// pubspec.yaml.
-const appVersion = '0.6.0';
+const appVersion = appFlavor == 'develop' ? '0.6.0-develop' : '0.6.0';
 
 class NsPanelApp extends StatelessWidget {
   const NsPanelApp({super.key});
@@ -83,6 +84,7 @@ class _ShellState extends State<Shell> {
             // the app's own files dir: where setup.json goes, and where the
             // update APK lands (the panel's shell user can read it there)
             _updater = Updater(
+              enabled: appFlavor != 'develop',
               installed: appVersion,
               dir: r.$3 ?? Directory.systemTemp,
             );
