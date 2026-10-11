@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nspanel_app/cards/env.dart';
-import 'package:nspanel_app/config/settings.dart';
-import 'package:nspanel_app/ha/connection.dart';
-import 'package:nspanel_app/ha/states.dart';
-import 'package:nspanel_app/intercom/intercom.dart';
-import 'package:nspanel_app/intercom/intercom_sheet.dart';
+import 'package:doorbird_intercom/doorbird_intercom.dart';
+import 'package:nspanel_app/local/doorbird/intercom_sheet.dart';
 import 'package:nspanel_app/ui/sheet.dart';
 
-import 'intercom_test.dart' show FakeIntercom;
-import 'connection_test.dart' show FakeHa;
+import '../packages/doorbird_intercom/test/support/fake_intercom.dart';
 
 void main() {
   testWidgets('probe preserves large controls and explicit microphone intent', (
@@ -21,24 +16,12 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final transport = FakeIntercom();
     final controller = IntercomController(transport);
-    final states = HaStates();
-    final conn = HaConnection(
-      transportFactory: () async => FakeHa({}),
-      token: 'test',
-      states: states,
-    );
-    final env = PanelEnv(
-      states: states,
-      conn: conn,
-      settings: Settings(url: 'http://fake', token: 'test'),
-      intercom: controller,
-    );
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () =>
-                showIntercomProbe(context, env, 'probe', 'DoorBird'),
+                showIntercomProbe(context, controller, {}, 'DoorBird'),
             child: const Text('Open'),
           ),
         ),
@@ -70,7 +53,6 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     controller.dispose();
-    conn.dispose();
     await transport.stream.close();
   });
 }

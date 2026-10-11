@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nspanel_app/config/settings.dart';
 import 'package:nspanel_app/ui/setup_screen.dart';
+import 'package:nspanel_app/local/extensions.dart';
+import 'package:nspanel_app/local/doorbird/profiles.dart';
 
 void main() {
   testWidgets(
@@ -17,18 +19,15 @@ void main() {
           'certificate_sha256': '0' * 64,
         },
       };
-      final original = Settings(
-        url: 'http://ha.invalid',
-        token: 'fake',
-        intercomProfiles: profiles,
-      );
+      final original = Settings(url: 'http://ha.invalid', token: 'fake');
       await original.save();
+      await LocalExtensions.provision({'intercom_profiles': profiles});
       final loaded = await Settings.load();
-      expect(loaded!.intercomProfiles, profiles);
+      expect(await DoorBirdProfiles.read('entrance'), profiles['entrance']);
       Settings? saved;
       await tester.pumpWidget(
         MaterialApp(
-          home: SetupScreen(initial: loaded, onSaved: (s) => saved = s),
+          home: SetupScreen(initial: loaded!, onSaved: (s) => saved = s),
         ),
       );
       final connect = find.text('Connect');
@@ -40,9 +39,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(connect);
       await tester.pumpAndSettle();
-      expect(saved!.intercomProfiles, profiles);
-      expect((await Settings.load())!.intercomProfiles, profiles);
-      await Settings.clear();
+      expect(saved, isNotNull);
+      expect(await DoorBirdProfiles.read('entrance'), profiles['entrance']);
+      await LocalExtensions.clearSettings();
       expect(
         (await SharedPreferences.getInstance()).containsKey(
           'intercom_profiles',

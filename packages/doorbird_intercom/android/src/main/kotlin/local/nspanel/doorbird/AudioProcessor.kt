@@ -1,4 +1,4 @@
-package nl.mennovanhout.nspanel_app.intercom
+package local.nspanel.doorbird
 
 /** Session-owned AEC3/NS. Close only after the audio workers have stopped. */
 class AudioProcessor : AutoCloseable {

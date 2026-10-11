@@ -20,10 +20,7 @@ class Settings {
     this.feedback,
     this.overrides,
     this.brightness,
-    this.intercomProfiles,
   });
-
-  Map<String, dynamic>? intercomProfiles;
 
   String url;
   String token;
@@ -100,7 +97,6 @@ class Settings {
   static const _kFeedback = 'feedback';
   static const _kOverrides = 'overrides';
   static const _kBrightness = 'brightness';
-  static const _kIntercom = 'intercom_profiles';
 
   static Map<String, dynamic>? _map(SharedPreferences p, String key) {
     final raw = p.getString(key);
@@ -122,7 +118,9 @@ class Settings {
   /// long as it takes to read it once.
   ///
   ///   adb push setup.json /sdcard/Android/data/nl.mennovanhout.nspanel/files/setup.json
-  static Future<bool> consumeSetupFile() async {
+  static Future<bool> consumeSetupFile({
+    Future<void> Function(Map<String, dynamic>)? onLocalSettings,
+  }) async {
     try {
       final dir = await getExternalStorageDirectory();
       if (dir == null) return false;
@@ -163,11 +161,6 @@ class Settings {
                   : null)
             : current?.feedback,
         overrides: current?.overrides,
-        intercomProfiles: j.containsKey('intercom_profiles')
-            ? (j['intercom_profiles'] is Map
-                  ? Map<String, dynamic>.from(j['intercom_profiles'])
-                  : null)
-            : current?.intercomProfiles,
         brightness: j.containsKey('brightness')
             ? (j['brightness'] is Map
                   ? (j['brightness'] as Map).cast<String, dynamic>()
@@ -175,6 +168,7 @@ class Settings {
             : current?.brightness,
       );
       await s.save();
+      await onLocalSettings?.call(Map<String, dynamic>.from(j));
       return true;
     } catch (e) {
       debugPrint('setup.json: invalid settings (${e.runtimeType})');
@@ -201,7 +195,6 @@ class Settings {
       feedback: _map(p, _kFeedback),
       overrides: _map(p, _kOverrides),
       brightness: _map(p, _kBrightness),
-      intercomProfiles: _map(p, _kIntercom),
     );
   }
 
@@ -218,7 +211,6 @@ class Settings {
       _kFeedback: feedback,
       _kOverrides: overrides,
       _kBrightness: brightness,
-      _kIntercom: intercomProfiles,
     };
     for (final e in maps.entries) {
       if (e.value == null) {
@@ -235,7 +227,9 @@ class Settings {
     await p.setString(_kCache, json);
   }
 
-  static Future<void> clear() async {
+  static Future<void> clear({
+    Future<void> Function()? clearLocalSettings,
+  }) async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kUrl);
     await p.remove(_kToken);
@@ -247,7 +241,7 @@ class Settings {
     await p.remove(_kTts);
     await p.remove(_kOverrides);
     await p.remove(_kBrightness);
-    await p.remove(_kIntercom);
+    await clearLocalSettings?.call();
   }
 
   /// The dashboard's url_path, however it was typed. People paste what the

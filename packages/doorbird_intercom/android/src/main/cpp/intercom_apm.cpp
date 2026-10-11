@@ -19,12 +19,12 @@ struct Processor {
 };
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_nl_mennovanhout_nspanel_1app_intercom_AudioProcessor_create(JNIEnv*, jobject) {
+Java_local_nspanel_doorbird_AudioProcessor_create(JNIEnv*, jobject) {
   return reinterpret_cast<jlong>(new Processor());
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_nl_mennovanhout_nspanel_1app_intercom_AudioProcessor_process(
+Java_local_nspanel_doorbird_AudioProcessor_process(
     JNIEnv* env, jobject, jlong handle, jshortArray samples, jboolean reverse, jint delay) {
   if (!handle || env->GetArrayLength(samples) != 160) return -1;
   auto* p = reinterpret_cast<Processor*>(handle);
@@ -46,6 +46,6 @@ Java_nl_mennovanhout_nspanel_1app_intercom_AudioProcessor_process(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_nl_mennovanhout_nspanel_1app_intercom_AudioProcessor_destroy(JNIEnv*, jobject, jlong handle) {
+Java_local_nspanel_doorbird_AudioProcessor_destroy(JNIEnv*, jobject, jlong handle) {
   delete reinterpret_cast<Processor*>(handle);
 }

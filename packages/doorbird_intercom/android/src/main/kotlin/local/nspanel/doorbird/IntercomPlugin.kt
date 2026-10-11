@@ -1,4 +1,4 @@
-package nl.mennovanhout.nspanel_app.intercom
+package local.nspanel.doorbird
 
 import android.Manifest
 import android.app.Activity
@@ -15,7 +15,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
-import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.view.TextureRegistry
@@ -24,19 +24,26 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** One foreground session; all callbacks carry its generation. No background service. */
-class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
+class IntercomPlugin(private val context: Context, private val textures: TextureRegistry, messenger: BinaryMessenger) {
+    private var attachedActivity: Activity? = null
+    private val activity: Activity get() = attachedActivity ?: throw IntercomFailure("background")
+    fun attach(activity: Activity) { attachedActivity = activity }
+    fun detach() {
+        stop("background")
+        permissionResult?.success(false); permissionResult = null
+        attachedActivity = null
+    }
     private val main = Handler(Looper.getMainLooper())
-    private val textures = engine.renderer
     private var events: EventChannel.EventSink? = null
     private var session: Session? = null
     private var permissionResult: MethodChannel.Result? = null
-    private val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    private val commands = MethodChannel(engine.dartExecutor.binaryMessenger, "nl.mennovanhout.nspanel/intercom")
+    private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val commands = MethodChannel(messenger, "nl.mennovanhout.nspanel/intercom")
+    private val eventChannel = EventChannel(messenger, "nl.mennovanhout.nspanel/intercomEvents")
     init {
         // RTSP errors can embed credential-bearing URIs; report only typed errors.
         androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF)
-        EventChannel(engine.dartExecutor.binaryMessenger, "nl.mennovanhout.nspanel/intercomEvents")
-            .setStreamHandler(object : EventChannel.StreamHandler {
+        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, sink: EventChannel.EventSink) { events = sink }
                 override fun onCancel(arguments: Any?) { stop(); events = null }
             })
@@ -88,7 +95,7 @@ class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
     }
     fun background() { if (permissionResult == null) stop("background") }
     fun screenOff() { stop("screen_off") }
-    fun dispose() { stop(); permissionResult?.success(false); permissionResult = null; commands.setMethodCallHandler(null); events = null }
+    fun dispose() { stop(); permissionResult?.success(false); permissionResult = null; commands.setMethodCallHandler(null); eventChannel.setStreamHandler(null); events = null }
     private fun stop(reason: String? = null) {
         val old = session ?: return
         session = null; old.close()
