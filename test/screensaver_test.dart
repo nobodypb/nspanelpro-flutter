@@ -95,6 +95,16 @@ void main() {
     expect(card.withOverrides({'after': 1}).afterSeconds, 10);
   });
 
+  test(
+    'absolute wake threshold can override a card and return to adaptive mode',
+    () {
+      final card = ScreensaverConfig.fromMap({'proximity_above': 200});
+      expect(card.withOverrides({'proximity_above': 25}).proximityAbove, 25);
+      expect(card.withOverrides({'proximity_above': 0}).proximityAbove, isNull);
+      expect(card.withOverrides({'proximity_delta': 6}).proximityAbove, 200);
+    },
+  );
+
   test('is found wherever it sits in the dashboard', () {
     final cfg = {
       'views': [

@@ -112,6 +112,7 @@ class ScreensaverConfig {
   /// the dashboard card, which stays the default for every panel.
   ScreensaverConfig withOverrides(Map<String, dynamic>? o) {
     if (o == null || o.isEmpty) return this;
+    final above = (o['proximity_above'] as num?)?.toDouble();
     return ScreensaverConfig(
       afterSeconds:
           (o['after'] as num?)?.toInt().clamp(10, 86400) ?? afterSeconds,
@@ -133,7 +134,10 @@ class ScreensaverConfig {
           (o['proximity_delta'] as num?)?.toDouble().clamp(1, 1000) ??
           proximityDelta,
       proximityBelow: proximityBelow,
-      proximityAbove: proximityAbove,
+      // Zero from the MQTT number selects the learned resting level again.
+      proximityAbove: o.containsKey('proximity_above')
+          ? (above != null && above > 0 ? above : null)
+          : proximityAbove,
     );
   }
 

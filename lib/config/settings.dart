@@ -42,7 +42,7 @@ class Settings {
   Map<String, dynamic>? feedback;
 
   /// Screensaver keys changed from Home Assistant's device page - `after`,
-  /// `sleep`, `sleep_after`, `proximity_delta` - which win over the dashboard
+  /// `sleep`, `sleep_after`, `proximity_delta`, `proximity_above` - which win over the dashboard
   /// card. Null or empty: the dashboard card as it is.
   Map<String, dynamic>? overrides;
 
