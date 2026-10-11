@@ -269,6 +269,58 @@ void main() {
       expect(find.byType(LightSheet), findsNothing);
     },
   );
+  testWidgets('selected effect stays visible and follows confirmed state', (
+    t,
+  ) async {
+    final (f, states) = await mount(t);
+    await t.tap(find.text('Effects'));
+    await t.pump();
+    Finder button(String label) =>
+        find.ancestor(of: find.text(label), matching: find.byType(SheetButton));
+    final selected = button('Solid');
+    expect(t.widget<SheetButton>(selected).selected, true);
+    expect(
+      t
+          .widget<Opacity>(
+            find.descendant(of: selected, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      1,
+    );
+    final container = t.widget<Container>(
+      find.descendant(of: selected, matching: find.byType(Container)).first,
+    );
+    final border =
+        (container.foregroundDecoration! as BoxDecoration).border! as Border;
+    expect(border.top.color, Ns.text);
+    expect(border.top.width, 2);
+    expect(t.getSize(selected), const Size(220, 76));
+    await t.tap(find.text('Solid'));
+    await t.pump();
+    expect(f.calls, isEmpty);
+    expect(
+      t
+          .widget<Opacity>(
+            find.descendant(
+              of: button('Missing'),
+              matching: find.byType(Opacity),
+            ),
+          )
+          .opacity,
+      .35,
+    );
+    states.update(
+      'light.test',
+      HaState(
+        entityId: 'light.test',
+        state: 'on',
+        attributes: {...attrs, 'effect': 'Rainbow'},
+      ),
+    );
+    await t.pump();
+    expect(t.widget<SheetButton>(button('Solid')).selected, false);
+    expect(t.widget<SheetButton>(button('Regenbogen')).selected, true);
+  });
   testWidgets('target-only updates, capability fallback, no hidden sends', (
     t,
   ) async {

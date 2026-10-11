@@ -368,9 +368,13 @@ class _LightSheetState extends State<LightSheet> {
                         : p.caps.allowsPreset(s, item);
                     return SheetButton(
                       label: name,
-                      dimWhenDisabled: !available || !allowed || selected,
+                      dimWhenDisabled: !available || !allowed,
+                      selected: selected,
                       color: selected
-                          ? accent.withValues(alpha: .16)
+                          ? Color.alphaBlend(
+                              accent.withValues(alpha: .16),
+                              Ns.surface,
+                            )
                           : Ns.surface,
                       onTap: contentEnabled && allowed && !selected
                           ? () => _action(
