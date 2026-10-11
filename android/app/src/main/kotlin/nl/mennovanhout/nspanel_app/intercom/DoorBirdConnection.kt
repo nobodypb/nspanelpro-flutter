@@ -69,6 +69,8 @@ class DoorBirdConnection(private val profile: Map<*, *>) : Closeable {
             val result = JSONObject(String(bytes, Charsets.UTF_8)).getJSONObject("BHA")
             session = result.optString("SESSIONID")
             if (!session.matches(Regex("[a-zA-Z0-9]+"))) throw IntercomFailure("authentication")
+        } catch (_: javax.net.ssl.SSLException) {
+            throw IntercomFailure("certificate")
         } finally { c.disconnect(); requests.remove(c) }
         if (closed) throw IntercomFailure("closed")
     }

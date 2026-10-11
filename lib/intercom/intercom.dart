@@ -230,6 +230,7 @@ class IntercomController extends ChangeNotifier {
 String intercomMessage(String? error) => switch (error) {
   'permission' => 'Mikrofon oder DoorBird-Zugriff nicht erlaubt',
   'authentication' => 'DoorBird-Zugang prüfen',
+  'certificate' => 'DoorBird-Zertifikat prüfen',
   'locked' => 'Zugang vorübergehend gesperrt',
   'configuration' => 'Privates DoorBird-Profil fehlt oder ist ungültig',
   'busy' => 'DoorBird ist besetzt',
