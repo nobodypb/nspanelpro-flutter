@@ -61,6 +61,40 @@ The switch card is the button card's sibling for switches, input booleans and fa
 is lit while its entity is on, and a tap turns it the other way, echoed at once for
 `echo_ms` so the tile never shows the old state under a finger.
 
+**Fan details.** Hold a `fan.*` switch tile to open native speed and preset
+controls. This works independently of light details or general switch long-press
+support. `more_info: false` on the switch card disables fan details. Holding or
+closing a tile never changes the fan; horizontal swipes still change pages.
+
+Controls follow the entity's `supported_features`: turn-on and turn-off are
+separate capabilities, speed uses `fan.set_percentage`, and listed presets use
+`fan.set_preset_mode`. Missing flags do not imply power control. Speeds snap to
+`percentage_step` (or one percent when missing/invalid), including fractional
+steps such as a three-speed fan. A slider sends only on release. Zero percent is
+a speed command to stop the fan; integrations may reject it, just like other
+commands. Rejected commands keep the dialog open with an error, and incoming HA
+states update the controls. Unavailable entities and a disconnected HA disable
+the dialog's actions. Oscillation and direction are not exposed here.
+
+A short fan tap uses its supported `fan.turn_on` or `fan.turn_off` action,
+with state confirmed by HA. If that action is unsupported, it opens details
+instead (or does nothing with `more_info: false`). For devices whose power switch
+and fan are separate entities, keep the power switch and add a fan tile:
+
+```yaml
+type: custom:nspanel-switch-card
+more_info: true
+switches:
+  - entity: switch.extractor_power
+    name: Extractor power
+  - entity: fan.extractor
+    name: Extractor speed
+```
+
+There is no automatic linking or replacement of the power switch. Web cards
+continue to use Home Assistant's existing more-info dialog; this native dialog
+adds no new YAML fields or web bundle dependency.
+
 The camera card is a doorbell or a driveway as a still, asked for at the card's own size and
 replaced about once a second - and only while its page is the one showing and the
 screensaver is not up, so a camera on its own page costs nothing the rest of the time. No

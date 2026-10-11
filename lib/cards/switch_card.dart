@@ -11,11 +11,16 @@ import '../ui/theme.dart';
 import '../util/color.dart';
 import '../util/icons.dart';
 import 'env.dart';
+import 'fan_capabilities.dart';
+import 'fan_sheet.dart';
 
 /// [on, off] icons by domain, for entities that carry none of their own.
 const _icons = {
   'switch': ('mdi:toggle-switch-variant', 'mdi:toggle-switch-variant-off'),
-  'input_boolean': ('mdi:toggle-switch-variant', 'mdi:toggle-switch-variant-off'),
+  'input_boolean': (
+    'mdi:toggle-switch-variant',
+    'mdi:toggle-switch-variant-off',
+  ),
   'fan': ('mdi:fan', 'mdi:fan-off'),
   'automation': ('mdi:robot', 'mdi:robot-off'),
   'humidifier': ('mdi:air-humidifier', 'mdi:air-humidifier-off'),
@@ -55,14 +60,21 @@ class _SwitchCardState extends State<SwitchCard> {
     final raw = c['switches'] is List && c.listOr('switches').isNotEmpty
         ? c.listOr('switches')
         : (c['entity'] != null
-            ? [
-                {'entity': c['entity'], 'name': c.str('title') ?? c.str('name'), 'icon': c['icon']}
-              ]
-            : const []);
+              ? [
+                  {
+                    'entity': c['entity'],
+                    'name': c.str('title') ?? c.str('name'),
+                    'icon': c['icon'],
+                  },
+                ]
+              : const []);
     // a bare `- switch.x` is the short form of `- entity: switch.x`
     final list = [
       for (final it in raw)
-        if (it is String) <String, dynamic>{'entity': it} else if (it is Map) it.cast<String, dynamic>(),
+        if (it is String)
+          <String, dynamic>{'entity': it}
+        else if (it is Map)
+          it.cast<String, dynamic>(),
     ];
     return list.where((i) => i['entity'] != null).take(6).toList();
   }
@@ -82,12 +94,17 @@ class _SwitchCardState extends State<SwitchCard> {
 
   /// The state as shown: the tap's for echo_ms after it, then HA's.
   bool _isOn(_Sw s) {
-    if (s.local != null && DateTime.now().isBefore(s.localUntil)) return s.local!;
+    if (s.local != null && DateTime.now().isBefore(s.localUntil))
+      return s.local!;
     s.local = null;
     return widget.env.states.get(s.entity)?.state == 'on';
   }
 
   void _press(_Sw s) {
+    if (s.entity.startsWith('fan.')) {
+      _pressFan(s);
+      return;
+    }
     if (c.boolOr('haptics', true)) HapticFeedback.lightImpact();
     final on = !_isOn(s);
     final echo = c.intOr('echo_ms', 1500);
@@ -95,17 +112,48 @@ class _SwitchCardState extends State<SwitchCard> {
       s.local = on;
       s.localUntil = DateTime.now().add(Duration(milliseconds: echo));
     });
-    widget.env.conn.callService('homeassistant', on ? 'turn_on' : 'turn_off', {'entity_id': s.entity});
-    _timers.add(Timer(Duration(milliseconds: echo + 20), () {
-      if (mounted) setState(() {});
-    }));
+    widget.env.conn.callService('homeassistant', on ? 'turn_on' : 'turn_off', {
+      'entity_id': s.entity,
+    });
+    _timers.add(
+      Timer(Duration(milliseconds: echo + 20), () {
+        if (mounted) setState(() {});
+      }),
+    );
+  }
+
+  void _fanDetails(_Sw sw) {
+    if (!c.boolOr('more_info', true)) return;
+    showFanSheet(context, {
+      'entity': sw.entity,
+      'name': sw.item.str('name'),
+      'accent': c['accent'],
+    }, widget.env);
+  }
+
+  Future<void> _pressFan(_Sw sw) async {
+    final state = widget.env.states.get(sw.entity);
+    if (state == null || state.isBroken) return;
+    final caps = FanCapabilities(state);
+    if (state.isOn ? !caps.turnOff : !caps.turnOn) {
+      _fanDetails(sw);
+      return;
+    }
+    // Let HA confirm fan power; a failed command must not leave a false echo.
+    await widget.env.conn.callService(
+      'fan',
+      state.isOn ? 'turn_off' : 'turn_on',
+      {'entity_id': sw.entity},
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final accent = parseHex(c.str('accent')) ?? Ns.amber;
     return AnimatedBuilder(
-      animation: Listenable.merge([for (final s in _sws) widget.env.states.listen(s.entity)]),
+      animation: Listenable.merge([
+        for (final s in _sws) widget.env.states.listen(s.entity),
+      ]),
       builder: (context, _) => InfoShell(
         height: c.numOr('height', 200),
         accent: accent,
@@ -121,22 +169,35 @@ class _SwitchCardState extends State<SwitchCard> {
 
   Widget _tile(_Sw sw, Color accent) {
     final s = widget.env.states.get(sw.entity);
-    final broken = s == null || s.state == 'unavailable';
+    final broken =
+        s == null ||
+        s.state == 'unavailable' ||
+        (sw.entity.startsWith('fan.') && s.isBroken);
     final on = !broken && _isOn(sw);
     final compact = _columns == 3;
     final pair = _icons[sw.entity.split('.').first] ?? _icons['switch']!;
     final icon = broken
         ? MdiIcons.alertCircleOutline
-        : mdi(sw.item.str('icon') ?? s.attr<String>('icon') ?? (on ? pair.$1 : pair.$2), MdiIcons.toggleSwitchVariant);
+        : mdi(
+            sw.item.str('icon') ??
+                s.attr<String>('icon') ??
+                (on ? pair.$1 : pair.$2),
+            MdiIcons.toggleSwitchVariant,
+          );
     final label = sw.item.str('name') ?? friendlyName(s, sw.entity);
-    bool flag(String key) => sw.item[key] is bool ? sw.item[key] as bool : c.boolOr(key, true);
+    bool flag(String key) =>
+        sw.item[key] is bool ? sw.item[key] as bool : c.boolOr(key, true);
     final showName = flag('show_name');
     final showState = flag('show_state');
-    final state = broken ? 'Unavailable' : (on ? c.str('on_text') ?? 'On' : c.str('off_text') ?? 'Off');
+    final state = broken
+        ? 'Unavailable'
+        : (on ? c.str('on_text') ?? 'On' : c.str('off_text') ?? 'Off');
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: broken ? null : () => _press(sw),
+      // Keep the recognizer even when more_info is false, so a hold cannot tap.
+      onLongPress: sw.entity.startsWith('fan.') ? () => _fanDetails(sw) : null,
       child: Opacity(
         opacity: broken ? .45 : 1,
         child: Container(
@@ -157,18 +218,27 @@ class _SwitchCardState extends State<SwitchCard> {
               ),
               if (showName || showState) const SizedBox(height: 8),
               if (showName)
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: on ? accent : Ns.text,
-                        fontSize: compact ? 15 : 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -.2)),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: on ? accent : Ns.text,
+                    fontSize: compact ? 15 : 18,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -.2,
+                  ),
+                ),
               if (showState || broken)
-                Text(state,
-                    maxLines: 1,
-                    style: TextStyle(color: Ns.muted, fontSize: compact ? 13 : 14, height: 1.3)),
+                Text(
+                  state,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Ns.muted,
+                    fontSize: compact ? 13 : 14,
+                    height: 1.3,
+                  ),
+                ),
             ],
           ),
         ),
