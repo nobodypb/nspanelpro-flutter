@@ -161,12 +161,13 @@ three 103⅓px tracks for hue/saturation/brightness, with 14px gaps.
 Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs,
 or circular thumbs. Mark the position with a full-width soft shadow, without
 an opaque coloured line or outline. Use a transparent 3px marker, 5px for the
-selected `last_used` target, with a black 65% shadow (0/1 offset, blur 4, spread 1).
+selected `last_used` target, with a black 45% shadow (0/−1 offset, blur 4, no spread), weaker below.
 Clip the shadow out of the marker itself: its crisp central strip shows the
 unmodified gradient, with soft shadow only outside, matching CSS box-shadow. Follow the target light colour
 for the brightness fill at full colour, including live colour/white previews.
-Place the shadow just above the brightness fill and clamp its marker
-inside the track at either end. Colour is
+Place the brightness marker inside the top of its fill so the crisp centre
+shows the target colour. Gradient markers remain just above their position.
+Clamp every marker inside the track at either end. Colour is
 a preview, not selection or success. Only brightness has embedded percentage text.
 Keep the percentage centred with its existing 44px digits (scaled down only
 when necessary), with a half-size 22px/600 percent sign on the same baseline.
