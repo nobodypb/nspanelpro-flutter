@@ -169,6 +169,12 @@ class MainActivity : FlutterActivity() {
         }, 200)
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Permission prompts may pause us, but leaving the activity must always stop media.
+        intercom?.stopped()
+    }
+
     private var proximityListener: SensorEventListener? = null
     private var lightListener: SensorEventListener? = null
 
