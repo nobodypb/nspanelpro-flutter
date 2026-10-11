@@ -101,28 +101,10 @@ class _LightTrackState extends State<LightTrack> {
             ),
           ),
         );
-        // Match the card's plain level line. Put it just above the fill;
-        // gradients and a completely filled track may need contrasting ink.
-        Color background = widget.value == 1 ? widget.color : Ns.surface;
-        if (widget.gradient case final colors?) {
-          final position = widget.value * (colors.length - 1);
-          final index = position.floor().clamp(0, colors.length - 2);
-          background = Color.lerp(
-            colors[index],
-            colors[index + 1],
-            position - index,
-          )!;
-        }
-        double contrast(Color a, Color b) {
-          final x = a.computeLuminance(), y = b.computeLuminance();
-          return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
-        }
-
-        final lineColor = contrast(widget.color, background) >= 3
-            ? widget.color
-            : contrast(Ns.ground, background) > contrast(Ns.text, background)
-            ? Ns.ground
-            : Ns.text;
+        // Preserve the selected hue; a lighter line and dark halo separate it
+        // from the gradient without replacing the preview with black ink.
+        final lineColor = Color.lerp(widget.color, Colors.white, .24)!;
+        final fillColor = Color.lerp(widget.color, Ns.ground, .30)!;
         final lineHeight = widget.active ? 5.0 : 3.0;
         return Listener(
           onPointerCancel: (_) => cancel(),
@@ -175,7 +157,7 @@ class _LightTrackState extends State<LightTrack> {
                       child: FractionallySizedBox(
                         heightFactor: widget.value,
                         widthFactor: 1,
-                        child: ColoredBox(color: widget.color),
+                        child: ColoredBox(color: fillColor),
                       ),
                     ),
                   Positioned(
@@ -183,7 +165,20 @@ class _LightTrackState extends State<LightTrack> {
                     right: 0,
                     top: ((1 - widget.value) * box.maxHeight - lineHeight)
                         .clamp(0, box.maxHeight - lineHeight),
-                    child: Container(height: lineHeight, color: lineColor),
+                    child: Container(
+                      height: lineHeight,
+                      decoration: BoxDecoration(
+                        color: lineColor,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0xA6000000),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   if (widget.percent) ExcludeSemantics(child: label()),
                   if (!widget.enabled && widget.dimWhenDisabled)

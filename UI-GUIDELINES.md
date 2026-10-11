@@ -162,8 +162,10 @@ Keep tracks visually unlabelled: no Kelvin or RGB numbers, separate control tabs
 or circular thumbs. Match the card's plain, full-width 3px level line, without
 an outline; use 5px for the selected `last_used` target. Follow the target light
 colour for both brightness fill and line, including live colour/white previews.
-Fall back to contrasting `ground` or `text` when that colour has less than 3:1
-contrast against the local gradient or fully filled track. Place the line just
+Mix the line 24% toward white to emphasise that colour; never replace it with
+black/white contrast ink. Mix the brightness fill 30% toward `ground`, keeping
+it darker than the line. Give the line a black 65% shadow (0/1 offset, blur 4,
+spread 1) to separate it from both the gradient and fill. Place the line just
 above the brightness fill and clamp it inside the track at either end. Colour is
 a preview, not selection or success. Only brightness has embedded percentage text.
 Keep the percentage centred with its existing 44px digits (scaled down only
