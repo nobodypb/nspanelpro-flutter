@@ -99,12 +99,12 @@ class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
     }
     private fun diagnostic(stage: String, e: Exception) {
         // Class and code location only: exception messages/URIs may contain secrets.
-        val location = e.stackTrace.firstOrNull { it.className.startsWith("nl.mennovanhout") }
-        android.util.Log.w("Intercom", "$stage:${e.javaClass.simpleName}:${location?.methodName}:${location?.lineNumber}")
+        val location = e.stackTrace.take(4).joinToString(";") { "${it.className}.${it.methodName}:${it.lineNumber}" }
+        android.util.Log.w("Intercom", "$stage:${e.javaClass.simpleName}:$location")
     }
     fun stopped() { stop("background") }
     private fun failed(s: Session, e: Exception) {
-        diagnostic("media", e)
+        diagnostic("media A=${s.audioCount()} V=${s.videoCount()}", e)
         main.post {
             if (session === s) {
                 events?.success(mapOf("session" to s.id, "kind" to "error", "reason" to ((e as? IntercomFailure)?.reason ?: "network")))
@@ -156,6 +156,8 @@ class IntercomPlugin(private val activity: Activity, engine: FlutterEngine) {
                 main.postDelayed(this, 1000)
             }
         }
+        fun audioCount() = audioFrames
+        fun videoCount() = videoFrames
         fun start() {
             if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) throw IntercomFailure("audio_focus")
             audio.mode = AudioManager.MODE_IN_COMMUNICATION; audio.isSpeakerphoneOn = true
