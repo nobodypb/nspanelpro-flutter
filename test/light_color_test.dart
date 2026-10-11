@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nspanel_app/cards/env.dart';
 import 'package:nspanel_app/cards/light_color.dart';
+import 'package:nspanel_app/cards/light_card.dart';
 import 'package:nspanel_app/cards/light_sheet.dart';
 import 'package:nspanel_app/cards/switch_card.dart';
 import 'package:nspanel_app/config/settings.dart';
@@ -40,6 +41,7 @@ Future<(FanHa, HaStates)> mount(
   Map<String, dynamic> config = const {},
   String state = 'on',
   bool shortcut = false,
+  bool lightCard = false,
 }) async {
   t.view.physicalSize = const Size(480, 480);
   t.view.devicePixelRatio = 1;
@@ -79,6 +81,8 @@ Future<(FanHa, HaStates)> mount(
                 },
                 env: env,
               )
+            : lightCard
+            ? LightCard(config: c, env: env)
             : Builder(
                 builder: (context) => TextButton(
                   onPressed: () => showControlSheetBuilder(
@@ -93,6 +97,8 @@ Future<(FanHa, HaStates)> mount(
   );
   if (shortcut) {
     await t.longPress(find.byType(SwitchCard));
+  } else if (lightCard) {
+    await t.longPress(find.byType(LightCard));
   } else {
     await t.tap(find.text('Open'));
   }
@@ -128,6 +134,167 @@ void expectStableOpacity(WidgetTester t) {
 }
 
 void main() {
+  testWidgets(
+    'reopening a real light card ignores its off/optimistic zero when showing history',
+    (t) async {
+      final (f, states) = await mount(
+        t,
+        lightCard: true,
+        config: {'height': 444},
+      );
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'off',
+          attributes: {
+            ...attrs,
+            'brightness': null,
+            'hs_color': null,
+            'color_mode': null,
+          },
+        ),
+      );
+      await t.pumpAndSettle();
+      await t.tap(find.byIcon(Icons.close));
+      await t.pumpAndSettle();
+      await t.longPress(find.byType(LightCard));
+      await t.pumpAndSettle();
+      expect(slider(t, 'brightness').value, 128 / 255);
+      expect(find.text('Off · last values'), findsOneWidget);
+      expect(f.calls, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'off details recall confirmed values, mark history, retain plain turn on',
+    (t) async {
+      final (f, states) = await mount(t, config: {'step_target': 'last_used'});
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'off',
+          attributes: {
+            ...attrs,
+            'brightness': null,
+            'hs_color': null,
+            'color_mode': null,
+            'color_temp_kelvin': null,
+            'effect': null,
+          },
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.text('Off · last values'), findsOneWidget);
+      expect(slider(t, 'brightness').value, 128 / 255);
+      expect(slider(t, 'hue').value, .5);
+      expect(slider(t, 'saturation').value, .4);
+      await t.tap(find.text('Effects'));
+      await t.pumpAndSettle();
+      final solid = t.widget<SheetButton>(
+        find.ancestor(
+          of: find.text('Solid'),
+          matching: find.byType(SheetButton),
+        ),
+      );
+      expect(solid.selected, isTrue);
+      expect(solid.onTap, isNotNull);
+      await t.tap(find.text('Back'));
+      await t.pumpAndSettle();
+      expect(f.calls, isEmpty);
+      await t.tap(find.text('Turn on'));
+      await t.pumpAndSettle();
+      expect(f.calls.single, startsWith('light.turn_on '));
+      expect(last(f), {'entity_id': 'light.test'});
+    },
+  );
+
+  testWidgets(
+    'off failed edit rolls back to remembered value; acknowledgement does not learn draft',
+    (t) async {
+      final (f, states) = await mount(t);
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'off',
+          attributes: {
+            ...attrs,
+            'brightness': null,
+            'hs_color': null,
+            'effect': null,
+          },
+        ),
+      );
+      await t.pumpAndSettle();
+      f.refuses = true;
+      await at(t, 'brightness', .8);
+      await t.pumpAndSettle();
+      expect(slider(t, 'brightness').value, 128 / 255);
+      expect(
+        states.lightMemory.resolve('light.test', 'off', {})['brightness'],
+        128,
+      );
+      f.refuses = false;
+      await at(t, 'brightness', .8);
+      await t.pumpAndSettle();
+      expect(
+        states.lightMemory.resolve('light.test', 'off', {})['brightness'],
+        128,
+      );
+      await t.pump(const Duration(seconds: 2));
+      expect(slider(t, 'brightness').value, 128 / 255);
+    },
+  );
+
+  testWidgets(
+    'off temperature mode and last values remain subordinate to live capabilities',
+    (t) async {
+      final (_, states) = await mount(t);
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'on',
+          attributes: {
+            ...attrs,
+            'color_mode': 'color_temp',
+            'color_temp_kelvin': 4000,
+          },
+        ),
+      );
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'off',
+          attributes: {
+            ...attrs,
+            'color_mode': null,
+            'color_temp_kelvin': null,
+            'brightness': null,
+          },
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(slider(t, 'temperature').value, (4000 - 2000) / 4500);
+      states.update(
+        'light.test',
+        HaState(
+          entityId: 'light.test',
+          state: 'off',
+          attributes: {
+            'supported_color_modes': ['onoff'],
+          },
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.byType(LightTrack), findsNothing);
+      expect(t.widget<ControlSheet>(find.byType(ControlSheet)).state, 'Off');
+    },
+  );
+
   for (final c in jsonDecode(
     File('test/fixtures/light-color.json').readAsStringSync(),
   ) as List) {
@@ -333,7 +500,7 @@ void main() {
     expect(last(f)['entity_id'], 'light.test');
     states.update(
       'light.test',
-      const HaState(
+      HaState(
         entityId: 'light.test',
         state: 'on',
         attributes: {
@@ -350,11 +517,7 @@ void main() {
     expect(last(f)['brightness_pct'], 25);
     states.update(
       'light.test',
-      const HaState(
-        entityId: 'light.test',
-        state: 'unavailable',
-        attributes: attrs,
-      ),
+      HaState(entityId: 'light.test', state: 'unavailable', attributes: attrs),
     );
     await t.pump();
     await at(t, 'hue', .3);

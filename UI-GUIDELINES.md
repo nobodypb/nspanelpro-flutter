@@ -194,3 +194,12 @@ Light controls keep their normal opacity during a drag and while a command is
 pending. Temporary input locks must not fade neighbouring sliders, steps, actions
 or choices. Unavailable devices, unsupported choices and range limits still use
 the disabled treatment; input and accessibility guards remain in force.
+
+### Remembered light values
+
+Off-state light details may show last confirmed levels and colours. Keep the
+normal geometry and percentage typography; mark the existing status line as
+`Off · last values`. Dashboard tiles remain off. Do not imply availability or
+restore capabilities from memory. In the effect chooser a remembered selection
+keeps its check mark, but remains actionable while off so it can turn the light
+on. Opening details or the plain power action never restores cached parameters.

@@ -31,7 +31,25 @@ class LightSheet extends StatefulWidget {
 
 class _LightSheetState extends State<LightSheet> {
   LightControls get controls => LightControls(widget.config, widget.env);
-  LightColor get policy => LightColor(controls.current);
+  Map<String, dynamic> get displayAttributes =>
+      widget.env.states.lightMemory.resolve(
+        controls.entity,
+        controls.current?.state,
+        controls.current?.attributes ?? const {},
+      );
+  bool get hasLastValues =>
+      policy.caps.brightness &&
+      widget.env.states.lightMemory.hasLastValues(
+        controls.entity,
+        controls.current?.state,
+        controls.current?.attributes ?? const {},
+      );
+  LightColor get policy => LightColor(
+    controls.current,
+    attributes: displayAttributes,
+    lastValues: true,
+  );
+  String? _lastState;
   final Map<LightChannel, double> _echo = {}, _draft = {};
   final Map<LightChannel, Timer> _timers = {};
   LightChannel _active = LightChannel.brightness;
@@ -51,10 +69,12 @@ class _LightSheetState extends State<LightSheet> {
     super.initState();
     _white =
         policy.white &&
-        (controls.current?.attributes['color_mode'] == 'color_temp' ||
-            !policy.color);
+        (displayAttributes['color_mode'] == 'color_temp' || !policy.color);
     final actual = policy.value(LightChannel.brightness);
-    final initial = widget.resolveValue?.call(actual) ?? actual;
+    _lastState = controls.current?.state;
+    final initial = controls.current?.isOn == true
+        ? widget.resolveValue?.call(actual) ?? actual
+        : actual;
     if (initial != actual) _hold(LightChannel.brightness, initial);
     widget.env.conn.status.addListener(_connectionChanged);
     widget.env.states.listen(controls.entity).addListener(_stateChanged);
@@ -70,6 +90,13 @@ class _LightSheetState extends State<LightSheet> {
   }
 
   void _stateChanged() {
+    if (_lastState != controls.current?.state) {
+      _lastState = controls.current?.state;
+      _clearPreview();
+      _white =
+          policy.white &&
+          (displayAttributes['color_mode'] == 'color_temp' || !policy.color);
+    }
     if (!_available && _busy) {
       _generation++;
       _busy = false;
@@ -174,7 +201,7 @@ class _LightSheetState extends State<LightSheet> {
     if (!mounted || generation != _generation) return;
     setState(() {
       if (ok) {
-        _hold(ch, values[ch]!);
+        if (!(off && controls.current?.state == 'off')) _hold(ch, values[ch]!);
         if (ch == LightChannel.hue || ch == LightChannel.saturation) {
           _hold(LightChannel.hue, values[LightChannel.hue]!);
           _hold(LightChannel.saturation, values[LightChannel.saturation]!);
@@ -185,7 +212,9 @@ class _LightSheetState extends State<LightSheet> {
       }
     });
     if (ch == LightChannel.brightness) {
-      widget.onLevelChanged?.call(ok ? values[ch]! : policy.value(ch));
+      widget.onLevelChanged?.call(
+        ok ? values[ch]! : controls.entityValue(controls.current),
+      );
     }
   }
 
@@ -262,8 +291,9 @@ class _LightSheetState extends State<LightSheet> {
             : null);
     final whiteTarget =
         previewChannel == LightChannel.temperature ||
-        (previewChannel == null && s?.attributes['color_mode'] == 'color_temp');
-    if (whiteTarget && p.range != null) {
+        (previewChannel == null &&
+            displayAttributes['color_mode'] == 'color_temp');
+    if (whiteTarget && p.white && p.range != null) {
       target = LightColor.kelvin(
         p.range!.min +
             values[LightChannel.temperature]! * (p.range!.max - p.range!.min),
@@ -287,8 +317,10 @@ class _LightSheetState extends State<LightSheet> {
         ? 'Unavailable'
         : on
         ? 'On'
+        : hasLastValues
+        ? 'Off · last values'
         : 'Off';
-    final effect = s?.attr<String>('effect');
+    final effect = displayAttributes['effect'] as String?;
     final actions = <SheetAction>[
       if (_chooser != null)
         SheetAction(
@@ -362,7 +394,9 @@ class _LightSheetState extends State<LightSheet> {
                         item.str('effect') ??
                         '${item['brightness_pct']}%';
                     final selected =
-                        isEffect && on && effect == item.str('effect');
+                        isEffect &&
+                        (on || hasLastValues) &&
+                        effect == item.str('effect');
                     final allowed = isEffect
                         ? p.effects.contains(item.str('effect'))
                         : p.caps.allowsPreset(s, item);
@@ -376,7 +410,7 @@ class _LightSheetState extends State<LightSheet> {
                               Ns.surface,
                             )
                           : Ns.surface,
-                      onTap: contentEnabled && allowed && !selected
+                      onTap: contentEnabled && allowed && !(selected && on)
                           ? () => _action(
                               () => isEffect
                                   ? (policy.effects.contains(item.str('effect'))
