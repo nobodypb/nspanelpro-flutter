@@ -88,7 +88,9 @@ class _FanSheetState extends State<FanSheet> {
         if (mounted) setState(() => _echo = null);
       },
     );
-    if (!await _send('set_percentage', {'percentage': pct}) && mounted) {
+    if (!await _send('set_percentage', {'percentage': pct}) &&
+        mounted &&
+        ModalRoute.of(context)?.isCurrent == true) {
       _echoTimer?.cancel();
       setState(() => _echo = null);
     }
@@ -98,7 +100,11 @@ class _FanSheetState extends State<FanSheet> {
     String service, [
     Map<String, dynamic> data = const {},
   ]) async {
-    if (await _send(service, data) && mounted) Navigator.of(context).pop();
+    if (await _send(service, data) &&
+        mounted &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
