@@ -81,6 +81,7 @@ class _SwitchCardState extends State<SwitchCard> {
                   {
                     'entity': c['entity'],
                     'detail_entity': c['detail_entity'],
+                    'detail_name': c['detail_name'],
                     'step_target': c['step_target'],
                     'step': c['step'],
                     'effect_favorites': c['effect_favorites'],
@@ -171,7 +172,7 @@ class _SwitchCardState extends State<SwitchCard> {
     if (!c.boolOr('more_info', true)) return;
     showFanSheet(context, {
       'entity': sw.entity,
-      'name': sw.item.str('name'),
+      'name': sw.item.str('detail_name') ?? sw.item.str('name'),
       'accent': c['accent'],
     }, widget.env);
   }
@@ -197,7 +198,7 @@ class _SwitchCardState extends State<SwitchCard> {
     final entity = sw.detailEntity;
     final config = <String, dynamic>{
       'entity': entity,
-      'name': sw.item.str('name'),
+      'name': sw.item.str('detail_name') ?? sw.item.str('name'),
       'accent': c['accent'],
       'on_text': c['on_text'],
       'off_text': c['off_text'],
