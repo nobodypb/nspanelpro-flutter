@@ -65,16 +65,17 @@ Hold a switch tile to open native details (`more_info: true`, the default); set
 `more_info: false` to disable details. Releasing a hold never also toggles the entity,
 and horizontal swipes still belong to the pager. Light entities use the same
 capability-aware dialog as light cards: relay lights have only on/off; dimmable lights
-keep brightness controls while off. Switches, input booleans and fans initially offer
-on/off only. Other domains show their reported state without guessing device controls.
+keep brightness controls while off. Switches and input booleans offer on/off.
+Fans use the capability-aware controls described below. Other domains show their
+reported state without guessing device controls.
 These are small native dialogs, not the full Home Assistant web more-info frontend;
-fan speed and a free color picker are not implemented here.
+A free light color picker is not implemented here.
 
 Details follow live HA changes. Missing, unknown or unavailable entities can be
 inspected but cannot be operated. A refused on/off command in a switch/input-boolean/fan
-dialog leaves it open with an error; a refused tile tap clears its optimistic echo.
+dialog leaves it open with an error; a refused switch tile tap clears its optimistic
+echo. Fan tiles use the state confirmed by HA.
 Opening and closing details never sends a service call.
-
 
 **Fan details.** Hold a `fan.*` switch tile to open native speed and preset
 controls. This works independently of light details or general switch long-press
