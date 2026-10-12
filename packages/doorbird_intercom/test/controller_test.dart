@@ -19,6 +19,66 @@ void main() {
     await transport.stream.close();
   });
 
+  test(
+    'video loss and recovery preserve live audio, microphone and holds',
+    () async {
+      await controller.open({});
+      transport.emit('preview');
+      expect(controller.videoState, IntercomVideoState.connecting);
+      await controller.speak();
+      final texture = controller.texture;
+      final calls = List<String>.of(transport.calls);
+      transport.stream.add({
+        'session': transport.id,
+        'kind': 'video_state',
+        'state': 'reconnecting',
+      });
+      expect(controller.state, IntercomState.talking);
+      expect(controller.videoState, IntercomVideoState.reconnecting);
+      expect(controller.texture, texture);
+      expect(controller.busy, true);
+      expect(transport.calls, calls);
+      await controller.mute();
+      transport.stream.add({
+        'session': transport.id,
+        'kind': 'video_state',
+        'state': 'live',
+      });
+      expect(controller.state, IntercomState.muted);
+      expect(controller.videoState, IntercomVideoState.live);
+      expect(holds, [true, false, true]);
+      final old = transport.id;
+      await controller.close();
+      transport.stream.add({
+        'session': old,
+        'kind': 'video_state',
+        'state': 'reconnecting',
+      });
+      expect(controller.state, IntercomState.idle);
+      expect(transport.calls.where((c) => c.startsWith('mic:')), [
+        'mic:true',
+        'mic:false',
+      ]);
+    },
+  );
+  test('audio error still ends a call during video recovery', () async {
+    await controller.open({});
+    transport.emit('preview');
+    await controller.speak();
+    transport.stream.add({
+      'session': transport.id,
+      'kind': 'video_state',
+      'state': 'reconnecting',
+    });
+    transport.stream.add({
+      'session': transport.id,
+      'kind': 'error',
+      'reason': 'network',
+    });
+    expect(controller.state, IntercomState.error);
+    expect(controller.busy, false);
+    expect(transport.calls.where((c) => c.startsWith('stop:')), hasLength(1));
+  });
   test('opening and preview never request or activate microphone', () async {
     await controller.open({});
     expect(holds, [true]);
