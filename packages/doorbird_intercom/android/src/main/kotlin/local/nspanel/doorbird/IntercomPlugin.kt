@@ -37,6 +37,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
     private var events: EventChannel.EventSink? = null
     private var session: Session? = null
     private var permissionResult: MethodChannel.Result? = null
+    private val ringSamples by lazy { RingMixer.decode(context.assets.open("local_doorbell.pcm").use { it.readBytes() }) }
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val commands = MethodChannel(messenger, "nl.mennovanhout.nspanel/intercom")
     private val eventChannel = EventChannel(messenger, "nl.mennovanhout.nspanel/intercomEvents")
@@ -72,6 +73,12 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                         val args = call.arguments as Map<*, *>
                         session?.takeIf { it.id == (args["session"] as Number).toInt() }?.volume =
                             (args["volume"] as Number).toFloat().coerceIn(0f, 1f)
+                        result.success(null)
+                    }
+                    "ring" -> {
+                        val args = call.arguments as Map<*, *>
+                        session?.takeIf { it.id == (args["session"] as Number).toInt() }?.ring(
+                            (args["gain"] as Number).toFloat())
                         result.success(null)
                     }
                     "stop" -> {
@@ -132,6 +139,8 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
         @Volatile private var recorder: AudioRecord? = null
         @Volatile private var track: AudioTrack? = null
         @Volatile var volume = 0.5f
+        private val ringtone = RingMixer(ringSamples)
+        fun ring(gain: Float) { ringtone.start(gain) }
         @Volatile private var audioFrames = 0L
         @Volatile private var lastAudio = 0L
         @Volatile private var videoFrames = 0L
@@ -159,7 +168,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                     failed(this@Session, IntercomFailure("timeout")); return
                 }
                 emit(this@Session, "metrics", mapOf("audio_frames" to audioFrames, "video_frames" to videoFrames,
-                    "elapsed_ms" to now - started, "delay_ms" to delayMs, "microphone" to mic))
+                    "elapsed_ms" to now - started, "delay_ms" to delayMs, "microphone" to mic, "ring_samples" to ringtone.mixedSamples))
                 main.postDelayed(this, 1000)
             }
         }
@@ -188,6 +197,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                             val value = (MuLaw.decode(wire[i]) * volume).toInt().toShort()
                             pcm[i * 2] = value; pcm[i * 2 + 1] = value
                         }
+                        ringtone.mix(pcm)
                         apm.render(pcm)
                         var offset = 0
                         while (offset < pcm.size && !closed.get()) {

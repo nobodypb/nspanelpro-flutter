@@ -237,6 +237,7 @@ class _DashboardState extends State<Dashboard> {
         widget.display.controller.foreground &&
         !_saving &&
         widget.display.controller.interactive;
+    _extensions.visibility(widget.display.controller.foreground, _saving);
     _bridge?.screensaver(_saving);
   }
 
@@ -266,6 +267,15 @@ class _DashboardState extends State<Dashboard> {
     );
     _extensions = LocalExtensions(
       holdDisplay: widget.display.controller.hold,
+      navigation: _navigation,
+      shownPage: _shownPage,
+      foreground: () => widget.display.controller.foreground,
+      canShow: (index) =>
+          index >= 0 &&
+          index < _pages.length &&
+          _pages[index].cards.any(
+            (card) => cardType(card) == 'nspanel-camera-card',
+          ),
       holdNavigation: _navigation.hold,
       beforeMedia: () => _announcer.stop(),
       callService: _conn.callService,
@@ -371,6 +381,7 @@ class _DashboardState extends State<Dashboard> {
       onScreensaver: (on) =>
           on ? widget.display.controller.sleep(force: true) : _wake(),
       onPage: _navigation.navigate,
+      onLocalCommand: _extensions.command,
       onSay: (text) {
         if (!_extensions.ownsAudio) _announcer.say(text);
       },

@@ -38,6 +38,11 @@ class FakeIntercom implements IntercomTransport {
   }
 
   @override
+  Future<void> ring(int session, double gain) async {
+    calls.add('ring:$gain');
+  }
+
+  @override
   Future<void> stop(int session) async {
     calls.add('stop:$session');
   }

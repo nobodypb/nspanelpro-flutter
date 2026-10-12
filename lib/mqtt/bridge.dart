@@ -39,6 +39,7 @@ class PanelBridge {
     this.onWake,
     this.onInstall,
     this.onSetting,
+    this.onLocalCommand,
   });
 
   final MqttClient mqtt;
@@ -55,6 +56,7 @@ class PanelBridge {
   final void Function(String)? onPlay;
   final VoidCallback? onStop;
   final VoidCallback? onWake;
+  final void Function(Map<String, dynamic>)? onLocalCommand;
   final VoidCallback? onInstall;
 
   /// A panel setting changed from HA's device page: the object name and the
@@ -359,6 +361,16 @@ class PanelBridge {
     mqtt.subscribe('$base/brightness/set', (_, v) => _int(v, onBrightness));
     mqtt.subscribe('$base/volume/set', (_, v) => _int(v, onVolume));
     mqtt.subscribe('$base/page/set', (_, v) => _int(v, onPage));
+    if (onLocalCommand != null) {
+      mqtt.subscribe('$base/local/set', (_, v) {
+        try {
+          final command = jsonDecode(v);
+          if (command is Map<String, dynamic>) onLocalCommand!(command);
+        } on FormatException {
+          /* Ignore malformed commands. */
+        }
+      }, ignoreRetained: true);
+    }
     mqtt.subscribe(
       '$base/screensaver/set',
       (_, v) => onScreensaver?.call(v.trim().toUpperCase() == 'ON'),

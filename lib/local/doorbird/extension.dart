@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:doorbird_intercom/doorbird_intercom.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../extensions/camera_interaction.dart';
 import 'camera_view.dart';
 import 'profiles.dart';
+import '../../util/navigation_controller.dart';
+import 'ring_controller.dart';
+import 'ringtone.dart';
 
 /// Translate the stable host capabilities to the private media package.
 class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
@@ -16,24 +20,78 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
     IntercomTransport? transport,
     this.loadProfile = DoorBirdProfiles.read,
     this.callService,
+    DoorBirdRingtone? ringtone,
+    PanelNavigation? navigation,
+    ValueListenable<int>? shownPage,
+    bool Function()? foreground,
+    bool Function(int)? canShow,
   }) {
     controller = IntercomController(
       transport ?? NativeIntercomTransport(),
       onBusy: _busy,
-      beforeOpen: beforeMedia,
+      beforeOpen: () async {
+        await _ringtone?.wait();
+        await beforeMedia();
+      },
     )..addListener(notifyListeners);
+    if (navigation != null && shownPage != null) {
+      _ringtone = ringtone ?? DoorBirdRingtone();
+      rings = DoorBirdRingController(
+        navigation: navigation,
+        shownPage: shownPage,
+        holdDisplay: holdDisplay,
+        foreground: foreground!,
+        canShow: canShow!,
+        play: _playRing,
+        stopTone: () => _ringtone!.stop(),
+        inConversation: () => {
+          IntercomState.connecting,
+          IntercomState.talking,
+          IntercomState.muted,
+        }.contains(controller.state),
+        beforeRing: () {
+          if (controller.state == IntercomState.opening) {
+            _releaseNavigation?.call();
+            _releaseNavigation = null;
+          }
+        },
+      );
+    }
   }
   final VoidCallback Function() holdDisplay, holdNavigation;
   late final IntercomController controller;
   final Future<Map<String, dynamic>> Function(String) loadProfile;
   final Future<bool> Function(String, String, Map<String, dynamic>)?
   callService;
+  DoorBirdRingtone? _ringtone;
+  DoorBirdRingController? rings;
+  Future<void> _playRing() async {
+    if (controller.inUse && controller.texture != null) {
+      final conversation = {
+        IntercomState.connecting,
+        IntercomState.talking,
+        IntercomState.muted,
+      }.contains(controller.state);
+      debugPrint('local ring: mix gain=${conversation ? .2 : .6}');
+      await controller.ring(conversation ? .2 : .6);
+    } else {
+      await _ringtone?.play();
+    }
+  }
+
+  void visibility(bool foreground, bool saving) {
+    if (!foreground || saving) rings?.cancel();
+  }
+
   bool _disposed = false;
   VoidCallback? _releaseDisplay, _releaseNavigation;
   void _busy(bool busy) {
     if (busy) {
       _releaseDisplay ??= holdDisplay();
-      _releaseNavigation ??= holdNavigation();
+      if (!(rings?.active == true &&
+          controller.state == IntercomState.opening)) {
+        _releaseNavigation ??= holdNavigation();
+      }
     } else {
       _releaseDisplay?.call();
       _releaseDisplay = null;
@@ -62,6 +120,8 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
     return IntercomCameraView(
       key: ValueKey('${config['entity']}:$name'),
       controller: controller,
+      incoming: rings?.revision,
+      ringing: () => rings?.active == true,
       autoLive: option is Map && option['auto_live'] == true,
       openDoor:
           callService != null &&
@@ -75,6 +135,7 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
       ownsSession: (owner) => identical(_owner, owner),
       onStart: (owner) => _open(owner, name),
       onStop: _stop,
+      onEnd: () => rings?.cancel(),
     );
   }
 
@@ -108,6 +169,8 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
   @override
   void dispose() {
     _disposed = true;
+    rings?.dispose();
+    unawaited(_ringtone?.dispose());
     _request++;
     controller.removeListener(notifyListeners);
     controller.dispose();

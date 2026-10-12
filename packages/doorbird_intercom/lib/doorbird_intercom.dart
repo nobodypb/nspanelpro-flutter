@@ -21,6 +21,7 @@ abstract interface class IntercomTransport {
   Future<void> microphone(int session, bool enabled);
   Future<void> volume(int session, double value);
   Future<void> stop(int session);
+  Future<void> ring(int session, double gain);
 }
 
 class NativeIntercomTransport implements IntercomTransport {
@@ -52,6 +53,10 @@ class NativeIntercomTransport implements IntercomTransport {
   @override
   Future<void> stop(int session) =>
       _channel.invokeMethod('stop', {'session': session});
+
+  @override
+  Future<void> ring(int session, double gain) =>
+      _channel.invokeMethod('ring', {'session': session, 'gain': gain});
 }
 
 /// One owner for media, permission intent and temporary display/navigation holds.
@@ -151,6 +156,15 @@ class IntercomController extends ChangeNotifier {
       await transport.microphone(id, false);
     } catch (_) {
       if (_generation == id) _fail('audio_device');
+    }
+  }
+
+  Future<void> ring(double gain) async {
+    if (_disposed || !inUse) return;
+    try {
+      await transport.ring(_generation, gain.clamp(0, 1));
+    } catch (_) {
+      /* A failed notification must not terminate a call. */
     }
   }
 

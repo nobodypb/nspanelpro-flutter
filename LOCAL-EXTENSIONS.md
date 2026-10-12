@@ -79,3 +79,26 @@ slots are Live/End, Speak/Mute, Volume and Door buzzer. Volume opens the shared
 control sheet. The buzzer opens a confirmation; each confirmation can send at
 most one `button.press`, with no retries after timeout or failure. HA acceptance
 is labelled as a sent command, never proof of a physically unlocked door.
+
+## Incoming rings
+
+The optional generic MQTT `local/set` hook forwards commands only to the local
+composition root. Non-retained `{"type":"doorbird.ring","event_id":"<UTC ISO timestamp>","page":0}`
+opens the configured camera page; duplicate, retained, malformed and expired
+(10 seconds) events are ignored. No notification backlog is replayed after a
+broker/app restart. Configure the dashboard camera return override to 60 seconds
+and its home page to the intended destination. HA sends one command and owns no
+return timer. Existing MQTT command topics retain their behavior.
+
+The adapter owns a display hold for the incoming preview, released on navigation,
+End, background, forced screen saver or disposal. Opening during an incoming ring
+must not reset or suspend the navigation deadline; speaking and muted calls retain
+both holds. The normal chime completes before auto-live starts and restores the
+previous device volume. During an existing media session `IntercomTransport.ring`
+mixes the same sound into the 16 kHz output, at gain .6 for preview and .2 for a
+conversation, before the AEC render reference. It neither requests audio focus nor
+changes the session gain, microphone or native host Activity.
+
+`local_doorbell.pcm` is the existing generated `assets/sounds/doorbell.wav`, linearly
+resampled to 16 kHz signed little-endian mono PCM. It contains no recorded audio.
+Ring mixer tests cover gain, clipping, finite duration and restarting a notification.

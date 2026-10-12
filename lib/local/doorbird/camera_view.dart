@@ -1,5 +1,6 @@
 import 'package:doorbird_intercom/doorbird_intercom.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../ui/page_scope.dart';
 import '../../ui/sheet.dart';
@@ -18,8 +19,14 @@ class IntercomCameraView extends StatefulWidget {
     required this.onStop,
     this.autoLive = false,
     this.openDoor,
+    this.incoming,
+    this.ringing,
+    this.onEnd,
   });
   final IntercomController controller;
+  final ValueListenable<int>? incoming;
+  final bool Function()? ringing;
+  final VoidCallback? onEnd;
   final bool autoLive;
   final Future<bool> Function()? openDoor;
   final Widget picture;
@@ -44,6 +51,16 @@ class _CameraViewState extends State<IntercomCameraView> {
   bool _doorDialog = false;
 
   @override
+  void initState() {
+    super.initState();
+    widget.incoming?.addListener(_incoming);
+  }
+
+  void _incoming() {
+    if (_visible && !widget.controller.inUse) _start();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final scope = PageScope.maybeOf(context);
@@ -59,6 +76,10 @@ class _CameraViewState extends State<IntercomCameraView> {
   @override
   void didUpdateWidget(IntercomCameraView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.incoming != widget.incoming) {
+      oldWidget.incoming?.removeListener(_incoming);
+      widget.incoming?.addListener(_incoming);
+    }
     if (!oldWidget.autoLive && widget.autoLive) _visible = false;
     _visibility();
   }
@@ -70,7 +91,7 @@ class _CameraViewState extends State<IntercomCameraView> {
     final epoch = ++_visibilityEpoch;
     if (!active) {
       _stop();
-    } else if (widget.autoLive) {
+    } else if (widget.autoLive || widget.ringing?.call() == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && epoch == _visibilityEpoch && _visible) _start();
       });
@@ -191,6 +212,7 @@ class _CameraViewState extends State<IntercomCameraView> {
   @override
   void dispose() {
     _pageChanges?.removeListener(_visibility);
+    widget.incoming?.removeListener(_incoming);
     _stop();
     super.dispose();
   }
@@ -289,7 +311,10 @@ class _CameraViewState extends State<IntercomCameraView> {
                   active || _starting ? 'Beenden' : 'Live',
                   active || _starting ? Icons.stop : Icons.videocam,
                   active || _starting
-                      ? () => setState(_stop)
+                      ? () {
+                          widget.onEnd?.call();
+                          setState(_stop);
+                        }
                       : c.inUse
                       ? null
                       : _start,
