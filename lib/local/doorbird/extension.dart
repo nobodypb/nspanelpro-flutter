@@ -15,6 +15,7 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
     required Future<void> Function() beforeMedia,
     IntercomTransport? transport,
     this.loadProfile = DoorBirdProfiles.read,
+    this.callService,
   }) {
     controller = IntercomController(
       transport ?? NativeIntercomTransport(),
@@ -25,6 +26,8 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
   final VoidCallback Function() holdDisplay, holdNavigation;
   late final IntercomController controller;
   final Future<Map<String, dynamic>> Function(String) loadProfile;
+  final Future<bool> Function(String, String, Map<String, dynamic>)?
+  callService;
   bool _disposed = false;
   VoidCallback? _releaseDisplay, _releaseNavigation;
   void _busy(bool busy) {
@@ -54,9 +57,18 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
     final option = config['intercom'];
     final name = option is Map ? option['profile'] : null;
     if (name is! String || name.isEmpty) return null;
+    final opener = option is Map ? option['door_opener'] : null;
+    final entity = opener is Map ? opener['entity'] : null;
     return IntercomCameraView(
       key: ValueKey('${config['entity']}:$name'),
       controller: controller,
+      autoLive: option is Map && option['auto_live'] == true,
+      openDoor:
+          callService != null &&
+              entity is String &&
+              RegExp(r'^button\.[a-z0-9_]+$').hasMatch(entity)
+          ? () => callService!('button', 'press', {'entity_id': entity})
+          : null,
       title: (config['title'] ?? config['name'] ?? 'DoorBird').toString(),
       contain: config['fit'] == 'contain',
       picture: picture,

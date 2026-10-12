@@ -21,6 +21,173 @@ const config = <String, dynamic>{
 };
 
 void main() {
+  testWidgets('auto live only on visible entry; end and error do not restart', (
+    tester,
+  ) async {
+    final transport = FakeIntercom();
+    final shown = ValueNotifier(1);
+    final awake = ValueNotifier(true);
+    final extension = DoorBirdExtension(
+      transport: transport,
+      beforeMedia: () async {},
+      loadProfile: (_) async => {},
+      holdDisplay: () => () {},
+      holdNavigation: () => () {},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PageScope(
+          index: 0,
+          shown: shown,
+          awake: awake,
+          child: Builder(
+            builder: (context) => extension.build(context, {
+              ...config,
+              'intercom': {'profile': 'test', 'auto_live': true},
+            }, const SizedBox())!,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(transport.calls, isEmpty);
+    shown.value = 0;
+    await tester.pump();
+    await tester.pump();
+    expect(transport.calls.where((c) => c == 'open').length, 1);
+    transport.emit('preview');
+    await tester.pump();
+    expect(transport.calls, isNot(contains('mic:true')));
+    await tester.tap(find.text('Beenden'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(transport.calls.where((c) => c == 'open').length, 1);
+    shown.value = 1;
+    await tester.pump();
+    shown.value = 0;
+    await tester.pump();
+    await tester.pump();
+    expect(transport.calls.where((c) => c == 'open').length, 2);
+    transport.stream.add({
+      'kind': 'error',
+      'session': transport.id,
+      'reason': 'network',
+    });
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(transport.calls.where((c) => c == 'open').length, 2);
+    shown.value = 1;
+    await tester.pump();
+    shown.value = 0;
+    shown.value = 1;
+    await tester.pump();
+    await tester.pump();
+    expect(transport.calls.where((c) => c == 'open').length, 2);
+    await tester.pumpWidget(const SizedBox());
+    extension.dispose();
+    await transport.stream.close();
+    shown.dispose();
+    awake.dispose();
+  });
+
+  for (final success in [true, false, null]) {
+    testWidgets(
+      'opener confirms exactly once, cancels safely, result $success',
+      (tester) async {
+        tester.view.physicalSize = const Size(480, 480);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final transport = FakeIntercom();
+        final sent = <List<Object>>[];
+        final response = Completer<bool>();
+        final extension = DoorBirdExtension(
+          transport: transport,
+          beforeMedia: () async {},
+          loadProfile: (_) async => {},
+          holdDisplay: () => () {},
+          holdNavigation: () => () {},
+          callService: (domain, service, data) {
+            sent.add([domain, service, data]);
+            return response.future;
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Builder(
+                  builder: (context) => extension.build(context, {
+                    ...config,
+                    'intercom': {
+                      'profile': 'test',
+                      'door_opener': {'entity': 'button.test_relay'},
+                    },
+                  }, const SizedBox())!,
+                ),
+              ),
+            ),
+          ),
+        );
+        final before = tester.getRect(
+          find.byKey(const ValueKey('camera-picture')),
+        );
+        expect(before.size, const Size(456, 348));
+        for (final e in find.byType(SheetButton).evaluate()) {
+          expect(tester.getSize(find.byWidget(e.widget)), const Size(108, 76));
+        }
+        await tester.tap(find.text('Türsummer'));
+        await tester.pumpAndSettle();
+        expect(sent, isEmpty);
+        await tester.tap(find.text('Abbrechen'));
+        await tester.pumpAndSettle();
+        expect(sent, isEmpty);
+        await tester.tap(find.text('Türsummer'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Auslösen'));
+        await tester.pump();
+        await tester.tap(find.text('Auslösen'));
+        await tester.pump();
+        expect(sent, [
+          [
+            'button',
+            'press',
+            {'entity_id': 'button.test_relay'},
+          ],
+        ]);
+        if (success == null) {
+          await tester.pump(const Duration(seconds: 11));
+        } else {
+          response.complete(success);
+        }
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            success == true
+                ? 'Befehl gesendet'
+                : 'Ergebnis unklar – Tür prüfen',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Auslösen'));
+        await tester.pump();
+        expect(sent.length, 1);
+        await tester.tap(find.text('Schließen'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byKey(const ValueKey('camera-picture'))),
+          before,
+        );
+        expect(transport.calls, isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        extension.dispose();
+        await transport.stream.close();
+      },
+    );
+  }
+
   testWidgets(
     'fixed image and four bottom targets from still to live and back',
     (tester) async {

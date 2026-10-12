@@ -16,8 +16,12 @@ class IntercomCameraView extends StatefulWidget {
     required this.ownsSession,
     required this.onStart,
     required this.onStop,
+    this.autoLive = false,
+    this.openDoor,
   });
   final IntercomController controller;
+  final bool autoLive;
+  final Future<bool> Function()? openDoor;
   final Widget picture;
   final String title;
   final bool contain;
@@ -35,6 +39,9 @@ class _CameraViewState extends State<IntercomCameraView> {
   bool _starting = false;
   bool _profileFailed = false;
   int _intent = 0;
+  bool _visible = false;
+  int _visibilityEpoch = 0;
+  bool _doorDialog = false;
 
   @override
   void didChangeDependencies() {
@@ -49,8 +56,114 @@ class _CameraViewState extends State<IntercomCameraView> {
     _visibility();
   }
 
+  @override
+  void didUpdateWidget(IntercomCameraView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.autoLive && widget.autoLive) _visible = false;
+    _visibility();
+  }
+
   void _visibility() {
-    if (!(_scope?.active ?? true)) _stop();
+    final active = _scope?.active ?? true;
+    if (active == _visible) return;
+    _visible = active;
+    final epoch = ++_visibilityEpoch;
+    if (!active) {
+      _stop();
+    } else if (widget.autoLive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && epoch == _visibilityEpoch && _visible) _start();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
+  }
+
+  Future<void> _volume() => showControlSheetBuilder(
+    context,
+    (_) => ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) => ControlSheet(
+        title: 'Lautstärke',
+        state: 'DoorBird',
+        value: widget.controller.volume,
+        accent: Ns.violet,
+        fromTop: false,
+        step: 5,
+        actions: const [],
+        enabled: widget.controller.inUse,
+        onCommit: widget.controller.setVolume,
+      ),
+    ),
+  );
+
+  Future<void> _confirmDoor() async {
+    if (_doorDialog || widget.openDoor == null || !_visible) return;
+    _doorDialog = true;
+    var sent = false;
+    var pending = false;
+    var status = 'Nur nach Bestätigung';
+    var failed = false;
+    try {
+      await showControlSheetBuilder(
+        context,
+        (_) => StatefulBuilder(
+          builder: (context, update) => ControlSheet(
+            title: 'Türsummer',
+            state: status,
+            stateColor: failed ? Ns.danger : Ns.muted,
+            value: 0,
+            accent: Ns.mint,
+            fromTop: false,
+            step: 1,
+            showLevel: false,
+            body: const Center(
+              child: Text(
+                'Türsummer an der Eingangstür auslösen?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Ns.text, fontSize: 26),
+              ),
+            ),
+            actions: [
+              SheetAction(label: sent ? 'Schließen' : 'Abbrechen', run: () {}),
+              SheetAction(
+                label: 'Auslösen',
+                icon: Icons.lock_open,
+                primary: true,
+                close: false,
+                enabled: !pending && !sent,
+                run: () async {
+                  if (pending || sent || !mounted || !_visible) return;
+                  update(() {
+                    pending = true;
+                    sent = true;
+                    status = 'Wird gesendet …';
+                  });
+                  var ok = false;
+                  try {
+                    ok = await widget.openDoor!().timeout(
+                      const Duration(seconds: 10),
+                    );
+                  } catch (_) {
+                    /* Never retry a possibly executed door command. */
+                  }
+                  if (context.mounted) {
+                    update(() {
+                      pending = false;
+                      failed = !ok;
+                      status = ok
+                          ? 'Befehl gesendet'
+                          : 'Ergebnis unklar – Tür prüfen';
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      _doorDialog = false;
+    }
   }
 
   Future<void> _start() async {
@@ -193,23 +306,33 @@ class _CameraViewState extends State<IntercomCameraView> {
                       : null,
                 ),
                 const SizedBox(width: SheetMetrics.actionGap),
-                _button(
-                  'Leiser',
-                  Icons.remove,
-                  ready && c.volume > 0
-                      ? () => c.setVolume(c.volume - .05)
-                      : null,
-                  hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
-                ),
-                const SizedBox(width: SheetMetrics.actionGap),
-                _button(
-                  'Lauter',
-                  Icons.add,
-                  ready && c.volume < 1
-                      ? () => c.setVolume(c.volume + .05)
-                      : null,
-                  hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
-                ),
+                if (widget.openDoor != null) ...[
+                  _button(
+                    'Lautstärke',
+                    Icons.volume_up,
+                    ready ? _volume : null,
+                  ),
+                  const SizedBox(width: SheetMetrics.actionGap),
+                  _button('Türsummer', Icons.lock_open, _confirmDoor),
+                ] else ...[
+                  _button(
+                    'Leiser',
+                    Icons.remove,
+                    ready && c.volume > 0
+                        ? () => c.setVolume(c.volume - .05)
+                        : null,
+                    hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
+                  ),
+                  const SizedBox(width: SheetMetrics.actionGap),
+                  _button(
+                    'Lauter',
+                    Icons.add,
+                    ready && c.volume < 1
+                        ? () => c.setVolume(c.volume + .05)
+                        : null,
+                    hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
+                  ),
+                ],
               ],
             ),
           ),
