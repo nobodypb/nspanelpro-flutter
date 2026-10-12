@@ -268,6 +268,7 @@ class _DashboardState extends State<Dashboard> {
       holdDisplay: widget.display.controller.hold,
       holdNavigation: _navigation.hold,
       beforeMedia: () => _announcer.stop(),
+      callService: _conn.callService,
     );
     _env = PanelEnv(
       states: _states,

@@ -62,3 +62,20 @@ Future upstream API breaks can still require adapter changes. The isolated
 package limits the conflict surface; the contract checks and combined device
 validation make those changes reviewable. No claim of automatic compatibility
 with unknown future upstream releases is made.
+
+## DoorBird page options
+
+The camera's `intercom` map accepts `profile` (private profile name),
+`auto_live: true` (default false), and optionally
+`door_opener: {entity: button.example_relay_1}`. Only an explicitly configured
+button entity is accepted. Credentials never belong in the dashboard.
+The composition root provides a generic HA service callback to local extensions;
+DoorBird relay mapping and confirmation remain in `lib/local/doorbird/`.
+
+Auto-live starts once per visible entry, never in the hidden warm-up page.
+Ending or a media error does not automatically retry while the page stays open.
+The microphone still requires Speak. With an opener configured the four bottom
+slots are Live/End, Speak/Mute, Volume and Door buzzer. Volume opens the shared
+control sheet. The buzzer opens a confirmation; each confirmation can send at
+most one `button.press`, with no retries after timeout or failure. HA acceptance
+is labelled as a sent command, never proof of a physically unlocked door.
