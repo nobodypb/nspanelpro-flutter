@@ -159,6 +159,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
         private var lastHealthAt = 0L
         private var player: ExoPlayer? = null
         private val videoRecovery = VideoRecovery()
+        private val videoTransport = VideoTransport()
         private var videoGeneration = 0
         private var videoAvailable = false
         private val oldMode = audio.mode
@@ -241,7 +242,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
             val video = player
             val counters = video?.videoDecoderCounters
             counters?.ensureUpdated()
-            return "player=${video?.playbackState} position_ms=${video?.currentPosition} buffer_ms=${video?.totalBufferedDuration} " +
+            return "tcp=${videoTransport.useTcp} player=${video?.playbackState} position_ms=${video?.currentPosition} buffer_ms=${video?.totalBufferedDuration} " +
                 "frame_age_ms=${if (lastVideoAt == 0L) -1 else now - lastVideoAt} pts_us=$lastVideoPtsUs " +
                 "input=${counters?.queuedInputBufferCount} rendered=${counters?.renderedOutputBufferCount} dropped=${counters?.droppedBufferCount}"
         }
@@ -249,6 +250,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
         private fun videoUnavailable(reason: String, code: Int = 0) {
             if (closed.get()) return
             android.util.Log.i("Intercom", "video unavailable reason=$reason code=$code mic=$mic " + videoHealth(SystemClock.elapsedRealtime()))
+            videoTransport.failed(receivedFrame = lastVideoAt != 0L)
             videoGeneration++
             val old = player; player = null
             old?.release()
@@ -298,7 +300,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                         if (state == Player.STATE_ENDED && currentVideo(video, generation)) videoUnavailable("stream_ended")
                     }
                 })
-                video.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(VideoRecovery.RTSP_TIMEOUT_MS).createMediaSource(MediaItem.fromUri(uri)))
+                video.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(videoTransport.useTcp).setTimeoutMs(VideoRecovery.RTSP_TIMEOUT_MS).createMediaSource(MediaItem.fromUri(uri)))
                 video.prepare(); video.play()
             } catch (_: Exception) {
                 // RTSP/decoder failures are independent of HTTP audio and may
