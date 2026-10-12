@@ -11,12 +11,14 @@ class VideoRecovery {
         startedAt = now; lastFrame = null; healthySince = null; retryAt = null
     }
     fun frame(now: Long) {
+        if (lastFrame != null && now - lastFrame!! >= FRAME_TIMEOUT_MS) healthySince = null
         lastFrame = now
         if (healthySince == null) healthySince = now
         if (now - healthySince!! >= 10000) failures = 0
     }
-    fun stalled(now: Long): Boolean =
-        if (lastFrame == null) now - startedAt >= 10000 else now - lastFrame!! >= 5000
+    fun stalled(now: Long, buffering: Boolean = false): Boolean =
+        if (lastFrame == null) now - startedAt >= BUFFERING_TIMEOUT_MS
+        else now - lastFrame!! >= if (buffering) BUFFERING_TIMEOUT_MS else FRAME_TIMEOUT_MS
     fun failed(now: Long): Long {
         val delay = delays[failures.coerceAtMost(delays.lastIndex)]
         if (failures < delays.lastIndex) failures++
@@ -29,5 +31,11 @@ class VideoRecovery {
         retryAt = null; return true
     }
     fun cancel() { retryAt = null }
-    companion object { private val delays = longArrayOf(1000, 2000, 5000, 10000, 15000) }
+    companion object {
+        const val FRAME_TIMEOUT_MS = 5000L
+        const val BUFFERING_TIMEOUT_MS = 10000L
+        // The owner/watchdog, not the RTP queue's read timeout, decides recovery.
+        const val RTSP_TIMEOUT_MS = 12000L
+        private val delays = longArrayOf(1000, 2000, 5000, 10000, 15000)
+    }
 }

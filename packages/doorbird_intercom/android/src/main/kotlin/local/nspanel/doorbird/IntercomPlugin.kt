@@ -178,7 +178,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                     (writeAt > 0 && now - writeAt > 5000)) {
                     failed(this@Session, IntercomFailure("timeout")); return
                 }
-                if (player != null && videoRecovery.stalled(now)) videoUnavailable("frame_timeout")
+                if (player != null && videoRecovery.stalled(now, buffering = player?.playbackState == Player.STATE_BUFFERING)) videoUnavailable("frame_timeout")
                 if (videoRecovery.takeDue(now)) startVideo()
                 if (now - lastHealthAt >= 10000) {
                     lastHealthAt = now
@@ -298,7 +298,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                         if (state == Player.STATE_ENDED && currentVideo(video, generation)) videoUnavailable("stream_ended")
                     }
                 })
-                video.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(5000).createMediaSource(MediaItem.fromUri(uri)))
+                video.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(VideoRecovery.RTSP_TIMEOUT_MS).createMediaSource(MediaItem.fromUri(uri)))
                 video.prepare(); video.play()
             } catch (_: Exception) {
                 // RTSP/decoder failures are independent of HTTP audio and may
