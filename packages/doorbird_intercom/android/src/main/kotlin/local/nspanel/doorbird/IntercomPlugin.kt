@@ -148,6 +148,14 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
         @Volatile private var writeAt = 0L
         private val started = SystemClock.elapsedRealtime()
         private var firstReady = false
+        @Volatile private var captureCount = 0L
+        @Volatile private var captureUs = 0L
+        @Volatile private var captureMaxUs = 0L
+        @Volatile private var renderUs = 0L
+        @Volatile private var renderMaxUs = 0L
+        private var lastVideoAt = 0L
+        private var lastVideoPtsUs = 0L
+        private var lastHealthAt = 0L
         private var player: ExoPlayer? = null
         private val videoRecovery = VideoRecovery()
         private var videoGeneration = 0
@@ -169,8 +177,14 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                     (writeAt > 0 && now - writeAt > 5000)) {
                     failed(this@Session, IntercomFailure("timeout")); return
                 }
-                if (player != null && videoRecovery.stalled(now)) videoUnavailable()
+                if (player != null && videoRecovery.stalled(now)) videoUnavailable("frame_timeout")
                 if (videoRecovery.takeDue(now)) startVideo()
+                if (now - lastHealthAt >= 10000) {
+                    lastHealthAt = now
+                    android.util.Log.i("Intercom", "health A=$audioFrames V=$videoFrames T=$captureCount mic=$mic " +
+                        "capture_avg_us=${captureUs / captureCount.coerceAtLeast(1)} capture_max_us=$captureMaxUs " +
+                        "render_avg_us=${renderUs / audioFrames.coerceAtLeast(1)} render_max_us=$renderMaxUs " + videoHealth(now))
+                }
                 emit(this@Session, "metrics", mapOf("audio_frames" to audioFrames, "video_frames" to videoFrames,
                     "elapsed_ms" to now - started, "delay_ms" to delayMs, "microphone" to mic, "ring_samples" to ringtone.mixedSamples))
                 main.postDelayed(this, 1000)
@@ -202,7 +216,10 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                             pcm[i * 2] = value; pcm[i * 2 + 1] = value
                         }
                         ringtone.mix(pcm)
+                        val renderAt = SystemClock.elapsedRealtimeNanos()
                         apm.render(pcm)
+                        val elapsedUs = (SystemClock.elapsedRealtimeNanos() - renderAt) / 1000
+                        renderUs += elapsedUs; renderMaxUs = maxOf(renderMaxUs, elapsedUs)
                         var offset = 0
                         while (offset < pcm.size && !closed.get()) {
                             val n = output.write(pcm, offset, pcm.size - offset, AudioTrack.WRITE_BLOCKING)
@@ -219,8 +236,18 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
         private fun currentVideo(video: ExoPlayer, generation: Int) =
             !closed.get() && session === this && player === video && videoGeneration == generation
 
-        private fun videoUnavailable() {
+        private fun videoHealth(now: Long): String {
+            val video = player
+            val counters = video?.videoDecoderCounters
+            counters?.ensureUpdated()
+            return "player=${video?.playbackState} position_ms=${video?.currentPosition} buffer_ms=${video?.totalBufferedDuration} " +
+                "frame_age_ms=${if (lastVideoAt == 0L) -1 else now - lastVideoAt} pts_us=$lastVideoPtsUs " +
+                "input=${counters?.inputBufferCount} rendered=${counters?.renderedOutputBufferCount} dropped=${counters?.droppedBufferCount}"
+        }
+
+        private fun videoUnavailable(reason: String, code: Int = 0) {
             if (closed.get()) return
+            android.util.Log.i("Intercom", "video unavailable reason=$reason code=$code mic=$mic " + videoHealth(SystemClock.elapsedRealtime()))
             videoGeneration++
             val old = player; player = null
             old?.release()
@@ -234,6 +261,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
             if (closed.get() || session !== this) return
             val generation = ++videoGeneration
             videoRecovery.started(SystemClock.elapsedRealtime())
+            lastVideoAt = 0L; lastVideoPtsUs = 0L
             try {
                 val uri = Uri.Builder().scheme("rtsp").encodedAuthority(Uri.encode(connection.username) + ":" +
                     Uri.encode(connection.password) + "@" + connection.host + ":554").path("/mpeg/media.amp").build()
@@ -241,11 +269,11 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                 video.trackSelectionParameters = video.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, true).build()
                 video.setVideoSurface(surface)
-                video.setVideoFrameMetadataListener { _, _, format, _ ->
+                video.setVideoFrameMetadataListener { ptsUs, _, format, _ ->
                     val at = SystemClock.elapsedRealtime()
                     main.post {
                         if (currentVideo(video, generation)) {
-                            videoFrames++
+                            videoFrames++; lastVideoAt = at; lastVideoPtsUs = ptsUs
                             videoRecovery.frame(at)
                             if (!videoAvailable) {
                                 videoAvailable = true
@@ -258,10 +286,10 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                 }
                 video.addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
-                        if (currentVideo(video, generation)) videoUnavailable()
+                        if (currentVideo(video, generation)) videoUnavailable("player_error", error.errorCode)
                     }
                     override fun onPlaybackStateChanged(state: Int) {
-                        if (state == Player.STATE_ENDED && currentVideo(video, generation)) videoUnavailable()
+                        if (state == Player.STATE_ENDED && currentVideo(video, generation)) videoUnavailable("stream_ended")
                     }
                 })
                 video.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(5000).createMediaSource(MediaItem.fromUri(uri)))
@@ -269,7 +297,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
             } catch (_: Exception) {
                 // RTSP/decoder failures are independent of HTTP audio and may
                 // contain credential-bearing URIs. Never propagate/log them.
-                if (!closed.get() && videoGeneration == generation) videoUnavailable()
+                if (!closed.get() && videoGeneration == generation) videoUnavailable("setup_error")
             }
         }
         fun microphone(enabled: Boolean) {
@@ -310,7 +338,10 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                             at += n
                         }
                         if (at == pcm.size && mic && !closed.get()) {
+                            val captureAt = SystemClock.elapsedRealtimeNanos()
                             apm.capture(pcm, delayMs)
+                            val elapsedUs = (SystemClock.elapsedRealtimeNanos() - captureAt) / 1000
+                            captureCount++; captureUs += elapsedUs; captureMaxUs = maxOf(captureMaxUs, elapsedUs)
                             for (i in wire.indices) wire[i] = MuLaw.encode(pcm[i])
                             captured = true
                         }
