@@ -15,7 +15,8 @@ abstract interface class DisplayDriver {
 /// One owner for the dashboard, every dialog, and the physical display.
 /// Timers use Dart's monotonic timer queue; transitions invalidate pending I/O.
 class DisplayController extends ChangeNotifier {
-  DisplayController(this.driver);
+  DisplayController(this.driver, {this.onTrace});
+  final void Function(String, Map<String, Object?>)? onTrace;
   final DisplayDriver driver;
   ScreensaverConfig? config;
   bool enabled = false, foreground = true, interactive = true;
@@ -71,10 +72,10 @@ class DisplayController extends ChangeNotifier {
   Timer? _idle, _darkTimer;
   ScreensaverConfig get effective => config ?? const ScreensaverConfig();
   int _holds = 0;
-  VoidCallback hold() {
+  VoidCallback hold({String reason = 'hold'}) {
     _holds++;
     _cancelTimers();
-    wake();
+    wake(reason: reason);
     bool released = false;
     return () {
       if (released || _disposed) return;
@@ -172,7 +173,10 @@ class DisplayController extends ChangeNotifier {
       saving = true;
       unawaited(driver.saver(true));
       unawaited(driver.holdCpu(true));
-      if (wasOn && !_wantDark) _nearBlocked = near;
+      if (wasOn && !_wantDark) {
+        _nearBlocked = near;
+        if (near) _wakeTrace('proximity', false, 'near_blocked');
+      }
     }
     if (screenOn && !wasOn && _screenOnForSaver) {
       _screenOnForSaver = false;
@@ -180,17 +184,23 @@ class DisplayController extends ChangeNotifier {
     } else if (kind == 'wake' ||
         (screenOn && !wasOn) ||
         (initial && screenOn)) {
-      wake();
+      wake(
+        reason: kind == 'wake'
+            ? 'touch'
+            : initial
+            ? 'initial'
+            : 'platform',
+      );
     } else if (kind == 'touch') {
       if (saving) {
-        wake();
+        wake(reason: 'touch');
       } else {
         _arm();
       }
     } else if (!wasForeground && foreground && screenOn) {
       // No extra guard here: Android owns wake transition detection.
       if (saving) {
-        wake();
+        wake(reason: 'foreground');
       } else {
         _arm();
       }
@@ -202,9 +212,24 @@ class DisplayController extends ChangeNotifier {
     if (_disposed || near == value) return;
     near = value;
     if (!near) _nearBlocked = false;
+    if (near &&
+        (!enabled ||
+            !_ownsDisplay ||
+            !effective.wakeOnProximity ||
+            _nearBlocked)) {
+      _wakeTrace(
+        'proximity',
+        false,
+        _nearBlocked
+            ? 'near_blocked'
+            : !effective.wakeOnProximity
+            ? 'disabled'
+            : 'inactive',
+      );
+    }
     if (enabled && _ownsDisplay) {
       if (near && effective.wakeOnProximity && !_nearBlocked) {
-        wake();
+        wake(reason: 'proximity');
       } else if (!saving) {
         _arm();
       }
@@ -212,8 +237,24 @@ class DisplayController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void wake() {
-    if (_disposed || !enabled || !_ownsDisplay) return;
+  void _wakeTrace(String reason, bool accepted, String decision) {
+    onTrace?.call('wake_request', {
+      'reason': reason,
+      'accepted': accepted,
+      'decision': decision,
+      'dark': !interactive,
+      'saver': saving,
+      'foreground': foreground,
+      'suppressed': !accepted,
+    });
+  }
+
+  void wake({String reason = 'app'}) {
+    if (_disposed || !enabled || !_ownsDisplay) {
+      _wakeTrace(reason, false, 'inactive');
+      return;
+    }
+    _wakeTrace(reason, true, 'accepted');
     _forced = false;
     _screenOnForSaver = false;
     _nearBlocked = false;
@@ -239,6 +280,7 @@ class DisplayController extends ChangeNotifier {
     _idle?.cancel();
     _forced = force;
     _nearBlocked = force && near;
+    if (_nearBlocked) _wakeTrace('proximity', false, 'near_blocked');
     saving = true;
     // Native gate must know about the overlay before it is displayed.
     final generation = ++_generation;

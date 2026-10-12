@@ -15,6 +15,7 @@ import 'ringtone.dart';
 class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
   DoorBirdExtension({
     required this.holdDisplay,
+    VoidCallback Function()? holdRingDisplay,
     required this.holdNavigation,
     required Future<void> Function() beforeMedia,
     IntercomTransport? transport,
@@ -39,7 +40,7 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
       rings = DoorBirdRingController(
         navigation: navigation,
         shownPage: shownPage,
-        holdDisplay: holdDisplay,
+        holdDisplay: holdRingDisplay ?? holdDisplay,
         foreground: foreground!,
         canShow: canShow!,
         play: _playRing,

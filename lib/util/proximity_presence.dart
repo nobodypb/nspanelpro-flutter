@@ -30,11 +30,15 @@ class ProximityPresence {
   int? _scheduledLeave;
   bool _reported = false;
   bool get near => detector.near;
+  int? get modelAgeMs => detector.modelAgeAt(_now);
+  int? get baselineAgeMs => detector.baselineAgeAt(_now);
 
   void dark(bool value) {
-    detector.dark(value);
+    detector.dark(value, now: _now);
     _sync();
   }
+
+  void touch() => detector.touch(_now);
 
   void feed(double value) {
     detector.feed(value, _now);

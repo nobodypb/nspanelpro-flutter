@@ -756,7 +756,7 @@ class _DashboardState extends State<Dashboard> {
 
   // ---- idle / screensaver -------------------------------------------------
 
-  void _wake() => widget.display.controller.wake();
+  void _wake() => widget.display.controller.wake(reason: 'mqtt');
 
   /// Every touch-down clicks and, when the panel has a motor, buzzes -
   /// fired here, at the touch, not when a card decides what it meant, so

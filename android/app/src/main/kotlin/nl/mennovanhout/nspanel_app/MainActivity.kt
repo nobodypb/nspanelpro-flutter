@@ -250,6 +250,7 @@ class MainActivity : FlutterActivity() {
         }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        PanelTrace.initialize(this)
         super.configureFlutterEngine(flutterEngine)
         loadTick() // ahead of the first touch, which would otherwise be silent
         val messenger = flutterEngine.dartExecutor.binaryMessenger
@@ -257,7 +258,7 @@ class MainActivity : FlutterActivity() {
             if (call.method == "record") {
                 val args = call.arguments as? Map<*, *>
                 val event = args?.get("event") as? String
-                if (event in setOf("calibration", "proximity", "detector")) {
+                if (event in setOf("calibration", "proximity", "detector", "recovery", "repetition", "wake_request")) {
                     PanelTrace.record(event!!, args?.get("fields") as? Map<*, *> ?: emptyMap<Any, Any>())
                 }
                 result.success(null)
