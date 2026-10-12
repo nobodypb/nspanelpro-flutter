@@ -27,6 +27,9 @@ class LocalExtensions {
     Future<bool> Function(String, String, Map<String, dynamic>)? callService,
   }) : _doorbird = DoorBirdExtension(
          holdDisplay: holdDisplay,
+         holdRingDisplay: display == null
+             ? holdDisplay
+             : () => display.hold(reason: 'ring'),
          holdNavigation: holdNavigation,
          beforeMedia: beforeMedia,
          callService: callService,

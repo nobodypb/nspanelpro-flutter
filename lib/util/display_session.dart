@@ -55,6 +55,10 @@ class DisplaySession {
               _elapsed = stamp.toInt();
               _clock.reset();
             }
+            if (e['kind'] == 'wake' ||
+                e['kind'] == 'touch' && ((e['fingers'] as num?) ?? 0) > 0) {
+              _presence?.touch();
+            }
             lastEvent = Map<String, dynamic>.from(e);
             activity.add(lastEvent!);
             controller.platform(
@@ -74,7 +78,10 @@ class DisplaySession {
   final _clock = Stopwatch()..start();
   int _elapsed = 0;
   int get elapsedMilliseconds => _elapsed + _clock.elapsedMilliseconds;
-  final controller = DisplayController(NativeDisplayDriver());
+  final controller = DisplayController(
+    NativeDisplayDriver(),
+    onTrace: PanelTrace.record,
+  );
   StreamSubscription<dynamic>? _events;
   StreamSubscription<double>? _sensor;
   ProximityPresence? _presence;
@@ -96,6 +103,8 @@ class DisplaySession {
     'entries': _presence?.detector.entries ?? 0,
     'recalibrations': _presence?.detector.recalibrations ?? 0,
     'last_entry': _presence?.detector.lastEntry,
+    'model_age_ms': _presence?.modelAgeMs,
+    'baseline_age_ms': _presence?.baselineAgeMs,
   };
   bool _disposed = false;
   bool _updating = false;

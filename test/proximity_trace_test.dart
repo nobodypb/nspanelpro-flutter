@@ -56,12 +56,12 @@ void main() {
     d.feed(10, 6200);
     d.advance(6700);
     d.advance(6800);
-    expect(events.map((e) => e['reason']), [
-      'initial',
-      'initial',
-      'enter',
-      'leave',
-    ]);
+    expect(
+      events
+          .where((e) => e['event'] != 'recovery' && e['event'] != 'repetition')
+          .map((e) => e['reason']),
+      ['initial', 'initial', 'enter', 'leave'],
+    );
     expect(events[1]['dark'], true);
     expect(events[1]['baseline'], 10);
   });

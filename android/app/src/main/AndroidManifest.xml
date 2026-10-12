@@ -16,6 +16,12 @@
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <provider
+            android:name=".TraceProvider"
+            android:authorities="${applicationId}.paneltrace"
+            android:process=":trace"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -25,7 +25,7 @@ class DisplayOverlay extends StatelessWidget {
                     controller.effective.sleepAfterSeconds == 0
                 ? Listener(
                     behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => controller.wake(),
+                    onPointerDown: (_) => controller.wake(reason: 'touch'),
                     child: const ColoredBox(color: Color(0xff000000)),
                   )
                 : Screensaver(

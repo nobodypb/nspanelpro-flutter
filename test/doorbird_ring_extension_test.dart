@@ -48,7 +48,7 @@ void main() {
       navigation.addListener(() {
         shown.value = navigation.target ?? navigation.current;
       });
-      var display = 0;
+      var display = 0, ringHolds = 0;
       final extension = DoorBirdExtension(
         transport: media,
         ringtone: tone,
@@ -59,6 +59,14 @@ void main() {
         holdDisplay: () {
           display++;
           return () => display--;
+        },
+        holdRingDisplay: () {
+          display++;
+          ringHolds++;
+          return () {
+            display--;
+            ringHolds--;
+          };
         },
         holdNavigation: navigation.hold,
         beforeMedia: () async {},
@@ -87,6 +95,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(tone.plays, 1);
+      expect(ringHolds, 1);
       expect(media.calls, isEmpty);
       expect(navigation.held, false);
       tone.gate.complete();
@@ -100,6 +109,7 @@ void main() {
       await tester.pump();
       expect(navigation.current, 3);
       expect(display, 0);
+      expect(ringHolds, 0);
       expect(media.calls.where((c) => c == 'mic:true'), isEmpty);
       expect(media.calls.any((c) => c.startsWith('stop:')), true);
       await tester.pumpWidget(const SizedBox());

@@ -26,8 +26,18 @@ class ProximityDetector {
   int entries = 0, recalibrations = 0;
   bool _strong = false;
   int _strongHits = 0, _strongDirection = 0;
-  int? _weakSince, _weakSampleAt;
-  final _weakSamples = <double>[];
+  // Evidence belongs to a display model, not to the current near episode.
+  final _weak = <bool, _WeakEvidence>{};
+  int? _darkAt, _rapidAt;
+  double? _rapidValue;
+  int _repetitions = 0;
+  int get _now => _lastAt ?? 0;
+  int? modelAgeAt(int now) =>
+      _model == null ? null : (now - _model!.createdAt).clamp(0, 1 << 53);
+  int? baselineAgeAt(int now) =>
+      _model == null ? null : (now - _model!.trustedAt).clamp(0, 1 << 53);
+  int? get modelAgeMs => modelAgeAt(_now);
+  int? get baselineAgeMs => baselineAgeAt(_now);
   Map<String, Object?>? lastEntry;
   final _models = <bool, _RestModel>{};
   final _samples = <double>[];
@@ -44,13 +54,14 @@ class ProximityDetector {
         : math.max(delta, m.base.abs() * .15);
   }
 
-  void dark(bool value) {
+  void dark(bool value, {int? now}) {
     if (_dark == value) return;
     _dark = value;
+    _darkAt = now ?? _now;
     _samples.clear();
     _hits = _strongHits = 0;
     leaveAt = null;
-    _resetWeakWindow();
+    // Preserve the other model's candidate; never mix its samples.
     // Do not let time spent in the other display state advance learning.
     _models[_dark]?.resume(clear: true);
   }
@@ -82,7 +93,7 @@ class ProximityDetector {
     if (gap < 0 || gap > 2000) {
       _hits = 0;
       _samples.clear();
-      _resetWeakWindow();
+      _clearEvidence('sensor_gap', now);
       for (final m in _models.values) {
         m.resume(clear: true);
       }
@@ -125,8 +136,11 @@ class ProximityDetector {
         _strongDirection = direction;
         _strongHits = difference.abs() > limit * 2 ? _strongHits + 1 : 0;
         if (!near && _hits == 0) _strong = false;
-        if (_strongHits >= 2) _strong = true;
-        if (near && !leave && _recoverWeak(value, now, model)) return;
+        if (_strongHits >= 2) {
+          _strong = true;
+          _clearEvidence('strong', now);
+        }
+        if (_recoverWeak(value, now, model, leave: leave)) return;
       }
       if (!near) {
         if (adaptive) {
@@ -143,14 +157,22 @@ class ProximityDetector {
       if (_hits >= 2) {
         near = true;
         entries++;
-        _resetWeakWindow();
-        _weakSince = now;
+        if (adaptive && !_strong && recalibrateSeconds > 0) {
+          final evidence = _weak.putIfAbsent(
+            _dark,
+            () => _WeakEvidence(now, value - (baseline ?? value)),
+          );
+          evidence.add(value, now);
+          _repeat(value, now);
+        }
         lastEntry = {
           'elapsed_ms': now,
           'value': value,
           'baseline': evaluatedBase,
           'threshold': evaluatedThreshold,
           'dark': _dark,
+          'model_age_ms': modelAgeMs,
+          'baseline_age_ms': baselineAgeMs,
         };
         onTrace?.call('proximity', {
           'reason': 'enter',
@@ -159,6 +181,8 @@ class ProximityDetector {
           'baseline': evaluatedBase,
           'threshold': evaluatedThreshold,
           'dark': _dark,
+          'model_age_ms': modelAgeMs,
+          'baseline_age_ms': baselineAgeMs,
         });
         _hits = 0;
       }
@@ -179,37 +203,115 @@ class ProximityDetector {
       'noise': noise,
       'threshold': threshold,
       'delay_seconds': recalibrateSeconds,
+      'model_age_ms': modelAgeMs,
+      'baseline_age_ms': baselineAgeMs,
     });
   }
 
-  void _resetWeakWindow() {
-    _weakSince = _weakSampleAt = null;
-    _weakSamples.clear();
+  /// A touch is positive activity, so do not calibrate from its approach.
+  void touch(int now) => _clearEvidence('touch', now);
+
+  void _clearEvidence(String reason, int now) {
+    if (_weak.isNotEmpty) {
+      onTrace?.call('recovery', {'reason': reason, 'detector_ms': now});
+    }
+    _weak.clear();
+    _rapidAt = null;
+    _rapidValue = null;
+    _repetitions = 0;
   }
 
-  bool _recoverWeak(double value, int now, _RestModel model) {
-    if (_strong || recalibrateSeconds <= 0) return false;
-    _weakSince ??= now;
-    if (_weakSampleAt == null || now - _weakSampleAt! >= 100) {
-      _weakSampleAt = now;
-      _weakSamples.add(value);
-      if (_weakSamples.length > 64) _weakSamples.removeAt(0);
-    }
-    if (now - _weakSince! < recalibrateSeconds * 1000 ||
-        _weakSamples.length < 20) {
+  void _repeat(double value, int now) {
+    if (!_dark || _darkAt == null || now - _darkAt! > 2000) return;
+    final similar =
+        _rapidAt != null &&
+        now - _rapidAt! <= 120000 &&
+        (value - _rapidValue!).abs() <= math.max(4, (noise ?? 1) * 2);
+    _repetitions = similar ? _repetitions + 1 : 1;
+    _rapidAt = now;
+    _rapidValue = value;
+    onTrace?.call('repetition', {
+      'reason': 'off_near',
+      'detector_ms': now,
+      'count': _repetitions,
+      'value': value,
+      'baseline': baseline,
+      'threshold': threshold,
+      'model_age_ms': modelAgeMs,
+      'baseline_age_ms': baselineAgeMs,
+      'since_switch_ms': now - _darkAt!,
+      'suppressed': false,
+    });
+  }
+
+  bool _recoverWeak(
+    double value,
+    int now,
+    _RestModel model, {
+    required bool leave,
+  }) {
+    final evidence = _weak[_dark];
+    if (evidence == null || _strong || recalibrateSeconds <= 0) return false;
+    final maxAge = math.max(10000, recalibrateSeconds * 1000);
+    if (now - evidence.lastAt > maxAge) {
+      _weak.remove(_dark);
+      onTrace?.call('recovery', {
+        'reason': 'expired',
+        'detector_ms': now,
+        'dark': _dark,
+      });
       return false;
     }
-    final sorted = [..._weakSamples]..sort();
+    if (leave) {
+      evidence.restSince ??= now;
+      if (now - evidence.restSince! >= 500) {
+        _weak.remove(_dark);
+        onTrace?.call('recovery', {
+          'reason': 'restored',
+          'detector_ms': now,
+          'dark': _dark,
+        });
+      }
+      return false;
+    }
+    evidence.restSince = null;
+    if ((value - model.base).sign != evidence.direction) {
+      _weak.remove(_dark);
+      onTrace?.call('recovery', {
+        'reason': 'direction',
+        'detector_ms': now,
+        'dark': _dark,
+      });
+      return false;
+    }
+    evidence.add(value, now);
+    evidence.samples.removeWhere((s) => now - s.at > maxAge);
+    if (now - evidence.since < recalibrateSeconds * 1000 ||
+        evidence.samples.length < 20 ||
+        evidence.samples.where((s) => now - s.at <= 1500).length < 3) {
+      return false;
+    }
+    final values = [for (final sample in evidence.samples) sample.value];
+    final sorted = [...values]..sort();
     final spread =
         sorted[((sorted.length - 1) * .9).floor()] -
         sorted[((sorted.length - 1) * .1).floor()];
     if (spread > math.max(4, model.noise * 4)) return false;
-    // A weak stable plateau has no unique physical interpretation. Re-arm
-    // after a configurable delay; a confirmed strong approach never expires.
-    final rest = _RestModel(_weakSamples, now);
+    // Require fresh support in this state; inactive time alone never calibrates.
+    // The clock survives display transitions, while every sample keeps its state.
+    final rest = _RestModel(values, now);
     rest.noise = math.max(model.noise, rest.noise);
     _models[_dark] = rest;
     recalibrations++;
+    onTrace?.call('recovery', {
+      'reason': 'ready',
+      'detector_ms': now,
+      'dark': _dark,
+      'evidence_ms': now - evidence.since,
+      'sample_count': values.length,
+      'previous_model_age_ms': now - model.createdAt,
+      'previous_baseline_age_ms': now - model.trustedAt,
+    });
     _calibration('weak_stable', now, model.base);
     onTrace?.call('proximity', {
       'reason': 'recalibrated_leave',
@@ -219,7 +321,7 @@ class ProximityDetector {
     near = false;
     leaveAt = null;
     _hits = _strongHits = 0;
-    _resetWeakWindow();
+    _weak.remove(_dark);
     return true;
   }
 }
@@ -253,8 +355,12 @@ class _RestModel {
     : base = ([...samples]..sort())[samples.length ~/ 2],
       noise = _scale(samples),
       _lastAt = now,
-      _noiseAt = now;
+      _noiseAt = now,
+      createdAt = now,
+      trustedAt = now;
 
+  final int createdAt;
+  int trustedAt;
   double base, noise;
   final _residuals = <double>[];
   int? _lastAt, _noiseAt, _sampleAt;
@@ -287,6 +393,24 @@ class _RestModel {
     }
     // Freeze as soon as an approach is suspected, before its confirmation.
     // Time-based learning avoids changing behaviour with the sample rate.
-    if (moveBase) base += (value - base) * (1 - math.exp(-dt / 10000));
+    if (moveBase) {
+      base += (value - base) * (1 - math.exp(-dt / 10000));
+      trustedAt = now;
+    }
+  }
+}
+
+class _WeakEvidence {
+  _WeakEvidence(this.since, double difference) : direction = difference.sign;
+  final int since;
+  final double direction;
+  int? restSince;
+  int lastAt = 0;
+  final samples = <({double value, int at})>[];
+  void add(double value, int now) {
+    if (samples.isNotEmpty && now - samples.last.at < 100) return;
+    lastAt = now;
+    samples.add((value: value, at: now));
+    if (samples.length > 64) samples.removeAt(0);
   }
 }
