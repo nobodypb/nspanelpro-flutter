@@ -66,6 +66,10 @@ void main() {
       expect(f.finishes, 1);
       expect(c.active, false);
       expect(darks, [true, true]);
+      f.emit('resumed', dark: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(takes, 1);
+      expect(f.finishes, 1);
       c.dispose();
       await f.bus.close();
     },

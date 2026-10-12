@@ -54,8 +54,12 @@ class CompanionHandoffPlugin : FlutterPlugin, ActivityAware, Application.Activit
                         val intent = Intent(context, HandoffService::class.java)
                             .setAction("begin").putExtra("host", host.componentName.flattenToString())
                             .putExtra("task", host.taskId)
-                        context.startForegroundService(intent)
-                        result.success(null)
+                        try {
+                            context.startForegroundService(intent)
+                            result.success(null)
+                        } catch (_: Exception) {
+                            result.error("start_failed", "Companion session could not start", null)
+                        }
                     }
                 }
                 "prepared" -> { SessionBus.service?.prepared(call.arguments as? String); result.success(null) }
