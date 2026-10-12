@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <queries>
+        <package android:name="io.homeassistant.companion.android.minimal"/>
+        <package android:name="io.homeassistant.companion.android"/>
+    </queries>
+    <application>
+        <service android:name="local.nspanel.handoff.HandoffService" android:exported="false"/>
+    </application>
+</manifest>

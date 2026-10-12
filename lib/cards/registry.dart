@@ -61,7 +61,8 @@ Widget buildCard(CardConfig c, PanelEnv env) {
         children: [for (final x in c.maps('cards')) buildCard(x, env)],
       );
     default:
-      return UnsupportedCard(type: c['type']?.toString() ?? '(no type)');
+      return env.extensionCardBuilder?.call(c, env) ??
+          UnsupportedCard(type: c['type']?.toString() ?? '(no type)');
   }
 }
 

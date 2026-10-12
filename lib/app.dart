@@ -268,8 +268,11 @@ class _DashboardState extends State<Dashboard> {
     _extensions = LocalExtensions(
       holdDisplay: widget.display.controller.hold,
       navigation: _navigation,
+      display: widget.display.controller,
       shownPage: _shownPage,
-      foreground: () => widget.display.controller.foreground,
+      foreground: () =>
+          widget.display.controller.foreground &&
+          !widget.display.controller.externalSession,
       canShow: (index) =>
           index >= 0 &&
           index < _pages.length &&
@@ -288,6 +291,7 @@ class _DashboardState extends State<Dashboard> {
         if (!_extensions.ownsAudio) _announcer.play(ref);
       },
       cameraInteraction: _extensions.camera,
+      extensionCardBuilder: _extensions.buildCard,
       navigation: _navigation,
     );
 

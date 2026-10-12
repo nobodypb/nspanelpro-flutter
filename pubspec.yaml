@@ -40,6 +40,8 @@ dependencies:
   path_provider: ^2.1.6
   just_audio: ^0.10.6
   # Local extension; never include this dependency in an upstream contribution.
+  ha_companion_handoff:
+    path: packages/ha_companion_handoff
   doorbird_intercom:
     path: packages/doorbird_intercom
 

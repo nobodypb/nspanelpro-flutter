@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+
+import '../config/dashboard.dart';
 import '../util/navigation_controller.dart';
 import '../extensions/camera_interaction.dart';
 import '../config/settings.dart';
@@ -13,7 +16,9 @@ class PanelEnv {
     this.play,
     this.navigation,
     this.cameraInteraction,
+    this.extensionCardBuilder,
   });
+  final Widget? Function(CardConfig, PanelEnv)? extensionCardBuilder;
   final PanelNavigation? navigation;
   final CameraInteraction? cameraInteraction;
   final HaStates states;

@@ -103,6 +103,35 @@ changes the session gain, microphone or native host Activity.
 resampled to 16 kHz signed little-endian mono PCM. It contains no recorded audio.
 Ring mixer tests cover gain, clipping, finite duration and restarting a notification.
 
+## Companion handoff (NSP-007)
+
+`packages/ha_companion_handoff/` owns Android launch resolution, the temporary
+foreground service and its manifest, return handshake and native session journal.
+`lib/local/ha_companion/` owns the optional `custom:nspanel-ha-app-card` renderer,
+local activation preference and adaptation to display/navigation. Composition
+remains in `lib/local/extensions.dart`. The package never imports the host.
+
+Core review surface: optional `PanelEnv.extensionCardBuilder`, registry fallback,
+app composition, and the generic `ExternalDisplayLease` in the display controller.
+The display session retains the existing detector during a lease; there is no
+second sensor algorithm. Real activity foreground state is never falsified.
+An external session uses Android idle until screen-off, then transfers dark
+wake ownership back before activity resume. Existing near at screen-off must
+clear before a new approach can wake. Releasing the lease does not wake.
+
+The card is normal dashboard configuration, including in stacks. No pages or
+household entities are injected in the app. A separate downstream JS resource
+provides browser preview and editor; it never launches apps in the browser.
+The local boolean `companion_handoff_enabled` is provisioned through the existing
+setup import, defaults false and survives unrelated settings saves. Full local
+reset clears it. Native availability is restricted to tested Android API 27.
+
+For upstream updates run both package analyses/tests and Android tests, the
+boundary check, host display/adapter tests and the standalone web card bench.
+Test screen-off return with no flash, fresh physical approach, interrupted
+sessions, foreground-service cleanup, and DoorBird ring handling while external.
+No handoff code belongs in MainActivity or app Android build/manifest files.
+
 ## Independent video recovery
 
 RTSP/decoder errors and missing video frames restart only the video player.
