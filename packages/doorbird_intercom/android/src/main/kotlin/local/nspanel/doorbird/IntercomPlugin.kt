@@ -14,6 +14,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -265,7 +266,12 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
             try {
                 val uri = Uri.Builder().scheme("rtsp").encodedAuthority(Uri.encode(connection.username) + ":" +
                     Uri.encode(connection.password) + "@" + connection.host + ":554").path("/mpeg/media.amp").build()
-                val video = ExoPlayer.Builder(activity).build(); player = video
+                // A live intercom must resume before the five-second frame watchdog.
+                // Media3's default rebuffer wait is itself five seconds, causing
+                // recoverable packet gaps to turn into reconnect loops.
+                val buffers = DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(1000, 3000, 250, 500).build()
+                val video = ExoPlayer.Builder(activity).setLoadControl(buffers).build(); player = video
                 video.trackSelectionParameters = video.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, true).build()
                 video.setVideoSurface(surface)

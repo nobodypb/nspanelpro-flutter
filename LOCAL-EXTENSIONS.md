@@ -147,3 +147,11 @@ of stable video do. Initial frame timeout is ten seconds, video-stall timeout fi
 seconds. Generation checks discard callbacks from released players. End,
 background and screen-off cancel retries. Audio failure still terminates the
 session and never automatically reactivates the microphone.
+
+The intercom uses a 250 ms initial / 500 ms rebuffer threshold (1–3 s load-control
+buffer), instead of Media3's five-second rebuffer default. The rebuffer wait must
+remain well below the five-second frame watchdog: a brief transport interruption
+must not trigger a reconnect merely because the player is collecting its buffer.
+Bounded ten-second native health logs contain AEC call timings, decoder counters
+and numeric player state; retry logs distinguish frame timeout, stream end and
+player error. They never include media, credentials or exception messages.
