@@ -200,12 +200,64 @@ when different panels want different pictures; the dashboard card wins when both
 **Panel settings from Home Assistant.** The dashboard card is the config for every panel that
 shows that dashboard. When one panel wants something else - the hallway sleeps sooner, the
 bedroom never - open the panel's device page in Home Assistant: under *Configuration* it has
-**Idle timeout**, **Sleep**, **Sleep after** and **Wake sensitivity**. What you set there wins
+**Idle timeout**, **Sleep**, **Sleep after** and the proximity settings. What you set there wins
 over the dashboard card for that one panel, is kept on the panel, and shows the effective
 value otherwise, so the entity always tells you what the panel is doing. **Use dashboard
 settings** drops the overrides. Nothing has to be typed on the wall and nothing goes through
 adb; the only thing the setup screen (two-finger hold) still needs is the MQTT broker itself,
 which has to exist before Home Assistant can see the device.
+
+**Adaptive proximity threshold (native app).** Enable **Adaptive proximity threshold**
+on the panel's HA device page, or set `proximity_adaptive: true` in its screensaver
+config. Set the absolute threshold to **0** in HA first if an absolute override is
+active. **Proximity noise threshold (lower = more sensitive)** sets
+`proximity_noise_multiplier` from 1 to 8 (default 4). A smaller factor wakes on
+smaller movements and accepts more false wakes; 4 is a starting point, not a
+specified false-wake rate. The effective delta follows measured proximity noise:
+`max(2, factor * noise)`. In this mode **Fixed wake delta** (`proximity_delta`) and
+the legacy 15% baseline floor do not constrain it. Turning the adaptive switch off
+restores the fixed-delta behaviour; absolute upper/lower bounds always take priority.
+
+The detector learns separate resting levels for display on/off from 20 samples.
+While far it follows baseline drift with a 10-second time constant. A bounded
+64-observation window (at most 10/s) estimates noise from MAD and the 90th
+percentile of centred residuals; one raw unit is the scale floor. The estimate is
+updated once a second, rising with a 2-second time constant and falling over
+60 seconds. Two consecutive departures in the same direction confirm an approach.
+A suspected approach freezes baseline learning; confirmed presence freezes both
+baseline and noise. Release retains the 20% hysteresis and 500 ms debounce.
+Readings taken while near never enter the quiet noise window. Learning clocks
+restart across display changes and sensor gaps, without treating silence as absence.
+
+A weak signal that stays stable for **30 seconds** is allowed to become a new
+baseline. This prevents a small lasting ambient shift from holding the screen on.
+**Weak proximity recalibration (0 = off)** (`proximity_recalibrate_after`, 0–300 s)
+controls this delay. Recovery requires continuous new samples and a stable recent
+window. Two readings beyond twice the entry threshold latch strong presence, which
+is never relearned until the person leaves. Weak stationary presence may consequently
+be relearned too; set the recovery delay to 0 when indefinite holding is preferred.
+The noise estimate never decreases abruptly during recovery.
+
+The diagnostic **Proximity wake detector** exposes mode, baseline, noise, effective
+threshold, near state and the last confirmed entry (including display state). This
+is the detector controlling the display; the existing MQTT **Presence** entity
+retains its independent historical pulse semantics. Diagnostics update at most
+every two seconds and also refresh with periodic telemetry.
+
+Ambient light is not used as a direct lookup: the light channel can saturate and
+visible illuminance does not uniquely describe the proximity signal's interference.
+An abrupt permanent ambient shift can be indistinguishable from someone standing
+still. Weak-signal recovery makes this tradeoff explicit; a large persistent shift
+can still look like strong presence. Very slow approaches may blend into baseline
+drift. Validate actual distances and lighting conditions physically before claiming
+a detection range. Binary near/far sensors should use calibrated absolute bounds.
+
+For local analysis, `dart dev/replay_proximity.dart <events-*.jsonl[.gz]>` reuses the
+production detector. Input stays private. The report deduplicates native sensor
+timestamps, restarts calibration at gaps over five seconds, and records candidate
+entries, time spent near, and hourly threshold percentiles. It follows the recorded
+display states; it does not simulate how a hypothetical wake would change them.
+Without physical labels its entries cannot be counted as false wakes.
 
 **Display ownership and input safety.** The native app observes touches before Flutter,
 including touches in detail dialogs. Automatic sleep waits until every finger is up
@@ -223,8 +275,8 @@ The native-only option `keep_awake_on_proximity: true` (default false) also inhi
 idle while the sensor detects proximity. Use `proximity_above` or `proximity_below`
 for a calibrated absolute threshold; otherwise a resting baseline is learned.
 Entry requires two readings; release uses 20% hysteresis and 500 ms debounce.
-Unchanging sensor values do not expire. A hand held near the panel is not learned
-as the new baseline. This is short-range proximity, not room occupancy sensing.
+Absolute/fixed detection and strong adaptive presence do not expire. The adaptive
+mode can relearn weak stationary signals after its configurable recovery delay. This is short-range proximity, not room occupancy sensing.
 A forced screensaver command suppresses an already-present hand until it leaves
 and approaches again. Touch and an explicit wake command can still wake immediately.
 

@@ -407,7 +407,10 @@ class _DashboardState extends State<Dashboard> {
     b.start();
 
     // sensors, continuously, rate-limited in the bridge
-    _proxAlways = Proximity.stream.listen(b.proximity, onError: (_) {});
+    _proxAlways = Proximity.stream.listen((value) {
+      b.proximity(value);
+      b.proximityDiagnostics(widget.display.proximityDiagnostics);
+    }, onError: (_) {});
     _lightSub = Device.light.listen((lux) {
       b.illuminance(lux);
       _followLight(lux);
@@ -496,6 +499,15 @@ class _DashboardState extends State<Dashboard> {
       b.setting('sleep', s.sleep ? 'ON' : 'OFF');
       b.setting('sleep_after', s.sleepAfterSeconds.toString());
       b.setting('proximity_delta', s.proximityDelta.round().toString());
+      b.setting('proximity_adaptive', s.proximityAdaptive ? 'ON' : 'OFF');
+      b.setting(
+        'proximity_recalibrate_after',
+        s.proximityRecalibrateSeconds.toString(),
+      );
+      b.setting(
+        'proximity_noise_multiplier',
+        s.proximityNoiseMultiplier.toString(),
+      );
       b.setting('proximity_above', (s.proximityAbove ?? 0).round().toString());
     }
     b.setting('auto_brightness', st.autoBrightness ? 'ON' : 'OFF');
@@ -519,6 +531,20 @@ class _DashboardState extends State<Dashboard> {
         st.overrides = {...?st.overrides, 'sleep_after': n.round()};
       case 'proximity_delta' when n != null:
         st.overrides = {...?st.overrides, 'proximity_delta': n.toDouble()};
+      case 'proximity_adaptive' when value == 'ON' || value == 'OFF':
+        st.overrides = {...?st.overrides, 'proximity_adaptive': on};
+      case 'proximity_recalibrate_after'
+          when n != null && n.isFinite && n >= 0 && n <= 300 && n == n.round():
+        st.overrides = {
+          ...?st.overrides,
+          'proximity_recalibrate_after': n.toInt(),
+        };
+      case 'proximity_noise_multiplier'
+          when n != null && n.isFinite && n >= 1 && n <= 8:
+        st.overrides = {
+          ...?st.overrides,
+          'proximity_noise_multiplier': n.toDouble(),
+        };
       case 'proximity_above'
           when n != null &&
               n.isFinite &&
@@ -566,6 +592,7 @@ class _DashboardState extends State<Dashboard> {
     final b = _bridge;
     if (b == null) return;
     b.slowFrames(_frames.slow.value);
+    b.proximityDiagnostics(widget.display.proximityDiagnostics);
     _publishUpdate();
     final rssi = await Device.wifiRssi();
     if (rssi != null) b.rssi(rssi);

@@ -128,6 +128,35 @@ void main() {
     );
   });
 
+  test(
+    'adaptive discovery exposes threshold factor and live detector diagnostics',
+    () async {
+      final configs = bridge.discoveryConfigs();
+      final factor = configs['number/abc123/proximity_noise_multiplier']!;
+      expect(factor['min'], 1);
+      expect(factor['max'], 8);
+      expect(factor['step'], .5);
+      expect(
+        configs['sensor/abc123/proximity_detector']!['json_attributes_topic'],
+        'nspanel/abc123/proximity_detector',
+      );
+      bridge.start();
+      await pumpEventQueue();
+      bridge.proximityDiagnostics({
+        'mode': 'adaptive',
+        'threshold': 4.5,
+        'near': false,
+      });
+      await pumpEventQueue();
+      expect(
+        jsonDecode(
+          broker.published['nspanel/abc123/proximity_detector']!,
+        )['threshold'],
+        4.5,
+      );
+    },
+  );
+
   test('settings from HA arrive as object and payload, and the reset button as a press', () async {
     bridge.start();
     await pumpEventQueue();
@@ -136,6 +165,9 @@ void main() {
     broker.deliver('nspanel/abc123/auto_brightness/set', 'OFF');
     broker.deliver('nspanel/abc123/brightness_daylight/set', '800.0');
     broker.deliver('nspanel/abc123/proximity_above/set', '25');
+    broker.deliver('nspanel/abc123/proximity_adaptive/set', 'ON');
+    broker.deliver('nspanel/abc123/proximity_recalibrate_after/set', '30');
+    broker.deliver('nspanel/abc123/proximity_noise_multiplier/set', '3.5');
     broker.deliver('nspanel/abc123/settings_reset/set', 'PRESS');
     await pumpEventQueue();
     expect(commands, [
@@ -144,6 +176,9 @@ void main() {
       'setting auto_brightness OFF',
       'setting brightness_daylight 800.0',
       'setting proximity_above 25',
+      'setting proximity_adaptive ON',
+      'setting proximity_recalibrate_after 30',
+      'setting proximity_noise_multiplier 3.5',
       'setting settings_reset PRESS',
     ]);
     bridge.setting('idle_timeout', '600');

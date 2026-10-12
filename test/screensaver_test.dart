@@ -103,10 +103,64 @@ void main() {
       expect(card.withOverrides({'proximity_above': 0}).proximityAbove, isNull);
       expect(card.withOverrides({'proximity_delta': 6}).proximityAbove, 200);
       final reversed = ScreensaverConfig.fromMap({'proximity_below': 30});
-      expect(reversed.withOverrides({'proximity_above': 25}).proximityBelow, isNull);
-      expect(reversed.withOverrides({'proximity_above': 0}).proximityBelow, isNull);
+      expect(
+        reversed.withOverrides({'proximity_above': 25}).proximityBelow,
+        isNull,
+      );
+      expect(
+        reversed.withOverrides({'proximity_above': 0}).proximityBelow,
+        isNull,
+      );
     },
   );
+
+  test('adaptive mode and finite noise factor survive overrides', () {
+    final card = ScreensaverConfig.fromMap({
+      'proximity_adaptive': true,
+      'proximity_noise_multiplier': 3.5,
+    });
+    expect(ScreensaverConfig.fromMap({}).proximityAdaptive, false);
+    expect(card.proximityAdaptive, true);
+    expect(card.proximityRecalibrateSeconds, 30);
+    expect(
+      card.withOverrides({
+        'proximity_recalibrate_after': 0,
+      }).proximityRecalibrateSeconds,
+      0,
+    );
+    expect(
+      card.withOverrides({
+        'proximity_recalibrate_after': 999,
+      }).proximityRecalibrateSeconds,
+      300,
+    );
+    expect(
+      card.withOverrides({
+        'proximity_recalibrate_after': double.infinity,
+      }).proximityRecalibrateSeconds,
+      30,
+    );
+    expect(card.proximityNoiseMultiplier, 3.5);
+    expect(card.withOverrides({'after': 15}).proximityNoiseMultiplier, 3.5);
+    expect(
+      card.withOverrides({'proximity_adaptive': false}).proximityAdaptive,
+      false,
+    );
+    expect(
+      card.withOverrides({
+        'proximity_noise_multiplier': 99,
+      }).proximityNoiseMultiplier,
+      8,
+    );
+    expect(
+      card.withOverrides({
+        'proximity_noise_multiplier': double.nan,
+      }).proximityNoiseMultiplier,
+      4,
+    );
+    expect(card.withOverrides({'proximity_above': 25}).proximityAbove, 25);
+    expect(card.withOverrides({'proximity_above': 0}).proximityAdaptive, true);
+  });
 
   test('is found wherever it sits in the dashboard', () {
     final cfg = {

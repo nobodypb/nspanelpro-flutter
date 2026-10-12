@@ -69,6 +69,9 @@ class PanelBridge {
     'sleep',
     'sleep_after',
     'proximity_delta',
+    'proximity_adaptive',
+    'proximity_noise_multiplier',
+    'proximity_recalibrate_after',
     'proximity_above',
     'auto_brightness',
     'brightness_min',
@@ -237,7 +240,7 @@ class PanelBridge {
         ...conf,
       }, command: true),
       'number/$deviceId/proximity_delta': e('proximity_delta', {
-        'name': 'Adaptive wake sensitivity',
+        'name': 'Fixed wake delta',
         'min': 1,
         'max': 1000,
         'step': 1,
@@ -245,6 +248,45 @@ class PanelBridge {
         'icon': 'mdi:motion-sensor',
         ...conf,
       }, command: true),
+      'switch/$deviceId/proximity_adaptive': e('proximity_adaptive', {
+        'name': 'Adaptive proximity threshold',
+        'icon': 'mdi:motion-sensor',
+        ...conf,
+      }, command: true),
+      'number/$deviceId/proximity_noise_multiplier': e(
+        'proximity_noise_multiplier',
+        {
+          'name': 'Proximity noise threshold (lower = more sensitive)',
+          'min': 1,
+          'max': 8,
+          'step': 0.5,
+          'mode': 'box',
+          'icon': 'mdi:motion-sensor',
+          ...conf,
+        },
+        command: true,
+      ),
+      'number/$deviceId/proximity_recalibrate_after': e(
+        'proximity_recalibrate_after',
+        {
+          'name': 'Weak proximity recalibration (0 = off)',
+          'min': 0,
+          'max': 300,
+          'step': 5,
+          'mode': 'box',
+          'unit_of_measurement': 's',
+          'icon': 'mdi:timer-outline',
+          ...conf,
+        },
+        command: true,
+      ),
+      'sensor/$deviceId/proximity_detector': e('proximity_detector', {
+        'name': 'Proximity wake detector',
+        'value_template': '{{ value_json.mode }}',
+        'json_attributes_topic': '$base/proximity_detector',
+        'icon': 'mdi:motion-sensor',
+        ...diag,
+      }),
       'number/$deviceId/proximity_above': e('proximity_above', {
         'name': 'Absolute wake threshold (0 = adaptive)',
         'min': 0,
@@ -424,6 +466,13 @@ class PanelBridge {
       minInterval: const Duration(seconds: 1),
     );
   }
+
+  /// The actual display detector; MQTT's historical presence pulse is separate.
+  void proximityDiagnostics(Map<String, Object?> state) => _set(
+    'proximity_detector',
+    jsonEncode(state),
+    minInterval: const Duration(seconds: 2),
+  );
 
   void illuminance(double lux) => _set(
     'illuminance',
