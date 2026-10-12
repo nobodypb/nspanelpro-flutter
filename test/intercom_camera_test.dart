@@ -21,6 +21,62 @@ const config = <String, dynamic>{
 };
 
 void main() {
+  testWidgets(
+    'video reconnect displays status while speaking controls remain usable',
+    (tester) async {
+      final transport = FakeIntercom();
+      final extension = DoorBirdExtension(
+        transport: transport,
+        beforeMedia: () async {},
+        loadProfile: (_) async => {},
+        holdDisplay: () => () {},
+        holdNavigation: () => () {},
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) =>
+                extension.build(context, config, const Text('Still image'))!,
+          ),
+        ),
+      );
+      await tester.tap(find.text('Live'));
+      await tester.pump();
+      transport.emit('preview');
+      await tester.pump();
+      await tester.tap(find.text('Sprechen'));
+      await tester.pump();
+      transport.stream.add({
+        'session': transport.id,
+        'kind': 'video_state',
+        'state': 'reconnecting',
+      });
+      await tester.pump();
+      expect(
+        find.text('Gespräch · Mikrofon an\nVideo verbindet erneut …'),
+        findsOneWidget,
+      );
+      expect(find.text('Still image'), findsOneWidget);
+      await tester.tap(find.text('Stumm'));
+      await tester.pump();
+      expect(
+        find.text('Gespräch · Mikrofon aus\nVideo verbindet erneut …'),
+        findsOneWidget,
+      );
+      transport.stream.add({
+        'session': transport.id,
+        'kind': 'video_state',
+        'state': 'live',
+      });
+      await tester.pump();
+      expect(find.text('Gespräch · Mikrofon aus'), findsOneWidget);
+      expect(transport.calls.where((c) => c.startsWith('open')), hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+      extension.dispose();
+      await transport.stream.close();
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('auto live only on visible entry; end and error do not restart', (
     tester,
   ) async {
@@ -250,6 +306,11 @@ void main() {
         reason: 'keep still until a decoded live frame exists',
       );
       transport.emit('preview');
+      transport.stream.add({
+        'session': transport.id,
+        'kind': 'video_state',
+        'state': 'live',
+      });
       transport.stream.add({
         'kind': 'metrics',
         'session': transport.id,

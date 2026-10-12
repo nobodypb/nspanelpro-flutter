@@ -131,3 +131,19 @@ boundary check, host display/adapter tests and the standalone web card bench.
 Test screen-off return with no flash, fresh physical approach, interrupted
 sessions, foreground-service cleanup, and DoorBird ring handling while external.
 No handoff code belongs in MainActivity or app Android build/manifest files.
+
+## Independent video recovery
+
+RTSP/decoder errors and missing video frames restart only the video player.
+HTTP receive/transmit audio, microphone state, AEC, volume and conversation holds
+continue unchanged. The controller has a separate `IntercomVideoState`; audio
+readiness enables hearing/speaking even while the initial picture is connecting.
+The UI hides the stale texture while reconnecting and shows the existing still
+preview with an explicit video-connection status.
+
+Retry delays are 1, 2, 5, 10 and then 15 seconds, capped while the audio session
+remains healthy. A single rendered frame does not reset the backoff; ten seconds
+of stable video do. Initial frame timeout is ten seconds, video-stall timeout five
+seconds. Generation checks discard callbacks from released players. End,
+background and screen-off cancel retries. Audio failure still terminates the
+session and never automatically reactivates the microphone.
