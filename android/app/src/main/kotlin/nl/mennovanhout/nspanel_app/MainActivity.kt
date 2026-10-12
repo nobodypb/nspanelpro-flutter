@@ -75,6 +75,9 @@ class MainActivity : FlutterActivity() {
     private val power get() = getSystemService(Context.POWER_SERVICE) as PowerManager
 
     private fun emitDisplay(kind: String, accepted: Boolean = false) {
+        if (kind != "touch") PanelTrace.record("display", mapOf(
+            "reason" to kind, "interactive" to power.isInteractive,
+            "foreground" to foreground, "saver" to saverVisible))
         displayEvents?.success(mapOf("kind" to kind, "interactive" to power.isInteractive,
             "foreground" to foreground, "fingers" to fingers,
             "elapsed" to SystemClock.elapsedRealtime(), "accepted" to accepted))
@@ -109,6 +112,9 @@ class MainActivity : FlutterActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             syncScreen()
             if (intent.action == "android.system.gestures.touchDown") {
+                PanelTrace.record("touch", mapOf("action" to "vendor_down",
+                    "interactive" to power.isInteractive, "foreground" to foreground,
+                    "saver" to saverVisible))
                 if (!power.isInteractive && foreground) emitDisplay("wake")
             } else {
                 emitDisplay("screen")
@@ -129,7 +135,21 @@ class MainActivity : FlutterActivity() {
         }
         // All physical fingers inhibit idle, including a swallowed wake gesture.
         // MOVE need not cross the channel: DOWN/UP already bracket its lifetime.
-        if (event.actionMasked != MotionEvent.ACTION_MOVE) emitDisplay("touch", allow)
+        if (event.actionMasked != MotionEvent.ACTION_MOVE) {
+            val action = when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> "down"
+                MotionEvent.ACTION_UP -> "up"
+                MotionEvent.ACTION_CANCEL -> "cancel"
+                MotionEvent.ACTION_POINTER_DOWN -> "pointer_down"
+                MotionEvent.ACTION_POINTER_UP -> "pointer_up"
+                else -> "other"
+            }
+            PanelTrace.record("touch", mapOf("action" to action, "accepted" to allow,
+                "interactive" to power.isInteractive, "foreground" to foreground,
+                "saver" to wasSaver, "fingers" to fingers, "device_id" to event.deviceId,
+                "event_uptime_ms" to event.eventTime, "down_uptime_ms" to event.downTime))
+            emitDisplay("touch", allow)
+        }
         if (start && (!power.isInteractive || wasSaver)) {
             if (power.isInteractive) touchGuard.protect()
             emitDisplay("wake")
@@ -233,6 +253,16 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         loadTick() // ahead of the first touch, which would otherwise be silent
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, "nl.mennovanhout.nspanel/panelTrace").setMethodCallHandler { call, result ->
+            if (call.method == "record") {
+                val args = call.arguments as? Map<*, *>
+                val event = args?.get("event") as? String
+                if (event in setOf("calibration", "proximity", "detector")) {
+                    PanelTrace.record(event!!, args?.get("fields") as? Map<*, *> ?: emptyMap<Any, Any>())
+                }
+                result.success(null)
+            } else result.notImplemented()
+        }
         EventChannel(messenger, "nl.mennovanhout.nspanel/displayEvents").setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink) {

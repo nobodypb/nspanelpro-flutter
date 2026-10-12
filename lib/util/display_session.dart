@@ -9,6 +9,7 @@ import 'display.dart';
 import 'display_controller.dart';
 import 'proximity.dart';
 import 'proximity_presence.dart';
+import 'panel_trace.dart';
 
 class NativeDisplayDriver implements DisplayDriver {
   final _power = DisplayPower();
@@ -120,6 +121,9 @@ class DisplaySession {
         !controller.foreground ||
         s == null ||
         (!s.wakeOnProximity && !s.keepAwakeOnProximity)) {
+      if (_presence != null) {
+        PanelTrace.record('detector', {'reason': 'stopped'});
+      }
       _sensor?.cancel();
       _sensor = null;
       _presence?.dispose();
@@ -140,7 +144,17 @@ class DisplaySession {
       _presence?.dispose();
       _sensorConfig = s;
       controller.proximity(false);
-      final detector = ProximityPresence(s, controller.proximity);
+      PanelTrace.record('detector', {
+        'reason': old == null ? 'started' : 'reconfigured',
+        'adaptive': s.proximityAdaptive,
+        'multiplier': s.proximityNoiseMultiplier,
+        'delay_seconds': s.proximityRecalibrateSeconds,
+      });
+      final detector = ProximityPresence(
+        s,
+        controller.proximity,
+        onTrace: PanelTrace.record,
+      );
       _presence = detector;
       _sensor = Proximity.stream.listen(
         detector.feed,

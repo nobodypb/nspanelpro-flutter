@@ -5,15 +5,19 @@ import 'proximity_detector.dart';
 
 /// App-lifetime adapter; the pure detector is also used by offline replay.
 class ProximityPresence {
-  ProximityPresence(ScreensaverConfig config, this.onChanged)
-    : detector = ProximityDetector(
-        delta: config.proximityDelta,
-        above: config.proximityAbove,
-        below: config.proximityBelow,
-        adaptive: config.proximityAdaptive,
-        noiseMultiplier: config.proximityNoiseMultiplier,
-        recalibrateSeconds: config.proximityRecalibrateSeconds,
-      );
+  ProximityPresence(
+    ScreensaverConfig config,
+    this.onChanged, {
+    void Function(String, Map<String, Object?>)? onTrace,
+  }) : detector = ProximityDetector(
+         onTrace: onTrace,
+         delta: config.proximityDelta,
+         above: config.proximityAbove,
+         below: config.proximityBelow,
+         adaptive: config.proximityAdaptive,
+         noiseMultiplier: config.proximityNoiseMultiplier,
+         recalibrateSeconds: config.proximityRecalibrateSeconds,
+       );
 
   final void Function(bool) onChanged;
   final ProximityDetector detector;

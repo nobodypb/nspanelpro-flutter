@@ -10,8 +10,10 @@ class ProximityDetector {
     this.adaptive = false,
     this.noiseMultiplier = 4,
     this.recalibrateSeconds = 30,
+    this.onTrace,
   });
 
+  final void Function(String, Map<String, Object?>)? onTrace;
   final double delta;
   final double? above, below;
   final bool adaptive;
@@ -57,6 +59,11 @@ class ProximityDetector {
   void advance(int now) {
     if (leaveAt != null && now >= leaveAt!) {
       near = false;
+      onTrace?.call('proximity', {
+        'reason': 'leave',
+        'detector_ms': now,
+        'dark': _dark,
+      });
       leaveAt = null;
       _hits = 0;
       // Resume the quiet window without adding readings taken while near.
@@ -99,6 +106,7 @@ class ProximityDetector {
         if (_samples.length < 20) return;
         model = _models[_dark] = _RestModel(_samples, now);
         _samples.clear();
+        _calibration('initial', now, null);
       }
       final difference = value - model.base;
       final limit = threshold!;
@@ -144,6 +152,14 @@ class ProximityDetector {
           'threshold': evaluatedThreshold,
           'dark': _dark,
         };
+        onTrace?.call('proximity', {
+          'reason': 'enter',
+          'detector_ms': now,
+          'value': value,
+          'baseline': evaluatedBase,
+          'threshold': evaluatedThreshold,
+          'dark': _dark,
+        });
         _hits = 0;
       }
     } else if (leave) {
@@ -151,6 +167,19 @@ class ProximityDetector {
     } else {
       leaveAt = null;
     }
+  }
+
+  void _calibration(String reason, int now, double? previous) {
+    onTrace?.call('calibration', {
+      'reason': reason,
+      'detector_ms': now,
+      'dark': _dark,
+      'old_baseline': previous,
+      'baseline': baseline,
+      'noise': noise,
+      'threshold': threshold,
+      'delay_seconds': recalibrateSeconds,
+    });
   }
 
   void _resetWeakWindow() {
@@ -181,6 +210,12 @@ class ProximityDetector {
     rest.noise = math.max(model.noise, rest.noise);
     _models[_dark] = rest;
     recalibrations++;
+    _calibration('weak_stable', now, model.base);
+    onTrace?.call('proximity', {
+      'reason': 'recalibrated_leave',
+      'detector_ms': now,
+      'dark': _dark,
+    });
     near = false;
     leaveAt = null;
     _hits = _strongHits = 0;
