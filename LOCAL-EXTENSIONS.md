@@ -158,3 +158,10 @@ must not trigger a reconnect merely because the player is collecting its buffer.
 Bounded ten-second native health logs contain AEC call timings, decoder counters
 and numeric player state; retry logs distinguish frame timeout, stream end and
 player error. They never include media, credentials or exception messages.
+
+RTP datagrams are preferred for live video so a lost packet does not block the
+subsequent pictures behind TCP retransmission. If an attempt delivers no decoded
+frame within the existing startup limit, the next attempt forces RTP/TCP. This
+choice is session-local and resets on the next explicit session. A gap in an
+already working UDP stream does not force a protocol switch. Both paths keep
+the same bounded video watchdog and independent HTTP audio.
