@@ -9,7 +9,9 @@ class ProximityPresence {
     ScreensaverConfig config,
     this.onChanged, {
     void Function(String, Map<String, Object?>)? onTrace,
-  }) : detector = ProximityDetector(
+    int Function()? now,
+  }) : _nowOverride = now,
+       detector = ProximityDetector(
          onTrace: onTrace,
          delta: config.proximityDelta,
          above: config.proximityAbove,
@@ -22,6 +24,8 @@ class ProximityPresence {
   final void Function(bool) onChanged;
   final ProximityDetector detector;
   final _clock = Stopwatch()..start();
+  final int Function()? _nowOverride;
+  int get _now => _nowOverride?.call() ?? _clock.elapsedMilliseconds;
   Timer? _leave;
   int? _scheduledLeave;
   bool _reported = false;
@@ -33,7 +37,7 @@ class ProximityPresence {
   }
 
   void feed(double value) {
-    detector.feed(value, _clock.elapsedMilliseconds);
+    detector.feed(value, _now);
     _sync();
   }
 
@@ -43,15 +47,10 @@ class ProximityPresence {
       _scheduledLeave = detector.leaveAt;
       final at = _scheduledLeave;
       if (at != null) {
-        _leave = Timer(
-          Duration(
-            milliseconds: (at - _clock.elapsedMilliseconds).clamp(0, 500),
-          ),
-          () {
-            detector.advance(at);
-            _sync();
-          },
-        );
+        _leave = Timer(Duration(milliseconds: (at - _now).clamp(0, 500)), () {
+          detector.advance(at);
+          _sync();
+        });
       }
     }
     if (_reported != detector.near) {

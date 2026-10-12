@@ -25,6 +25,47 @@ class DisplayController extends ChangeNotifier {
   bool _screenOnForSaver = false;
   bool _disposed = false, _forced = false, _nearBlocked = false;
   bool _observed = false, _busy = false;
+  bool _external = false, _externalReturn = false;
+  bool get externalSession => _external;
+  bool get _ownsDisplay => _external ? _externalReturn : foreground;
+
+  /// A temporary external owner uses Android idle while detection stays warm.
+  /// Only this lease can authorize dark return before the activity resumes.
+  ExternalDisplayLease beginExternalSession() {
+    if (_external || _holds > 0) {
+      throw StateError('Display cannot be handed over now');
+    }
+    _external = true;
+    _externalReturn = false;
+    _generation++;
+    _cancelTimers();
+    notifyListeners();
+    return ExternalDisplayLease._(this);
+  }
+
+  Future<void> _prepareExternalReturn(bool dark) async {
+    if (_disposed || !_external) return;
+    _externalReturn = true;
+    if (dark) {
+      interactive = false;
+      saving = true;
+      _wantDark = true;
+      _nearBlocked = near;
+      _generation++;
+      await driver.saver(true);
+      await driver.holdCpu(true);
+    }
+    notifyListeners();
+  }
+
+  void _endExternalSession() {
+    if (_disposed || !_external) return;
+    _external = false;
+    _externalReturn = false;
+    _arm();
+    notifyListeners();
+  }
+
   bool _wantDark = false;
   int _generation = 0;
   Timer? _idle, _darkTimer;
@@ -47,6 +88,7 @@ class DisplayController extends ChangeNotifier {
       _holds == 0 &&
       enabled &&
       foreground &&
+      !_external &&
       fingers == 0 &&
       !(effective.keepAwakeOnProximity && near && !_nearBlocked);
 
@@ -116,7 +158,7 @@ class DisplayController extends ChangeNotifier {
     foreground = inForeground;
     fingers = pointerCount;
     if (kind == 'touch') touchSerial++;
-    if (!foreground) {
+    if (!_ownsDisplay) {
       _cancelTimers();
       _generation++;
       _wantDark = false;
@@ -160,7 +202,7 @@ class DisplayController extends ChangeNotifier {
     if (_disposed || near == value) return;
     near = value;
     if (!near) _nearBlocked = false;
-    if (enabled && foreground) {
+    if (enabled && _ownsDisplay) {
       if (near && effective.wakeOnProximity && !_nearBlocked) {
         wake();
       } else if (!saving) {
@@ -171,7 +213,7 @@ class DisplayController extends ChangeNotifier {
   }
 
   void wake() {
-    if (_disposed || !enabled || !foreground) return;
+    if (_disposed || !enabled || !_ownsDisplay) return;
     _forced = false;
     _screenOnForSaver = false;
     _nearBlocked = false;
@@ -241,7 +283,7 @@ class DisplayController extends ChangeNotifier {
             final off = await driver.off();
             if (off) {
               interactive = false;
-              if (_disposed || !enabled || !foreground) {
+              if ((_disposed || !enabled || !foreground) && !_external) {
                 await driver.on();
                 await driver.holdCpu(false);
               }
@@ -249,7 +291,7 @@ class DisplayController extends ChangeNotifier {
               _wantDark = false;
               debugPrint('display: sleep failed; screensaver remains visible');
             }
-          } else if (!_wantDark && !interactive && enabled && foreground) {
+          } else if (!_wantDark && !interactive && enabled && _ownsDisplay) {
             await driver.on();
             // Actual state is confirmed by Android's screen event.
           }
@@ -276,5 +318,20 @@ class DisplayController extends ChangeNotifier {
     _cancelTimers();
     unawaited(driver.holdCpu(false));
     super.dispose();
+  }
+}
+
+/// Scoped display handoff. Releasing it never wakes the screen.
+class ExternalDisplayLease {
+  ExternalDisplayLease._(this._owner);
+  DisplayController? _owner;
+  Future<void> prepareReturn({required bool dark}) async {
+    await _owner?._prepareExternalReturn(dark);
+  }
+
+  void release() {
+    final owner = _owner;
+    _owner = null;
+    owner?._endExternalSession();
   }
 }

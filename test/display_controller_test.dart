@@ -300,7 +300,11 @@ void main() {
     t,
   ) async {
     final seen = <bool>[];
-    final p = ProximityPresence(config, seen.add);
+    final p = ProximityPresence(
+      config,
+      seen.add,
+      now: () => t.binding.clock.now().millisecondsSinceEpoch,
+    );
     p.feed(210);
     p.feed(210);
     expect(seen, [true]);

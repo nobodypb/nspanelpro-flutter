@@ -118,7 +118,7 @@ class DisplaySession {
   void _updateSensor() {
     final s = controller.config;
     if (!controller.enabled ||
-        !controller.foreground ||
+        (!controller.foreground && !controller.externalSession) ||
         s == null ||
         (!s.wakeOnProximity && !s.keepAwakeOnProximity)) {
       if (_presence != null) {
