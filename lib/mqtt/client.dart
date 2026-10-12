@@ -18,7 +18,9 @@ class SocketMqttTransport implements MqttTransport {
   final Socket _s;
 
   static Future<SocketMqttTransport> connect(String host, int port) async =>
-      SocketMqttTransport._(await Socket.connect(host, port, timeout: const Duration(seconds: 8)));
+      SocketMqttTransport._(
+        await Socket.connect(host, port, timeout: const Duration(seconds: 8)),
+      );
 
   @override
   Stream<List<int>> get data => _s;
@@ -56,6 +58,7 @@ class MqttClient {
   StreamSubscription<List<int>>? _listen;
   final _dec = MqttDecoder();
   final _subs = <String, void Function(String topic, String payload)>{};
+  final _ignoreRetained = <String>{};
   Timer? _ping, _retryTimer;
   Duration _backoff = const Duration(seconds: 1);
   bool _closed = false;
@@ -88,15 +91,21 @@ class MqttClient {
       return;
     }
     _lastRx = DateTime.now();
-    _listen = _t!.data.listen(_onData, onDone: _onClosed, onError: (_) => _onClosed());
-    _t!.send(encodeConnect(
-      clientId: clientId,
-      username: username,
-      password: password,
-      keepAlive: keepAlive,
-      willTopic: willTopic,
-      willMessage: willMessage,
-    ));
+    _listen = _t!.data.listen(
+      _onData,
+      onDone: _onClosed,
+      onError: (_) => _onClosed(),
+    );
+    _t!.send(
+      encodeConnect(
+        clientId: clientId,
+        username: username,
+        password: password,
+        keepAlive: keepAlive,
+        willTopic: willTopic,
+        willMessage: willMessage,
+      ),
+    );
   }
 
   void _onClosed() {
@@ -131,11 +140,18 @@ class MqttClient {
           _backoff = const Duration(seconds: 1);
           connected.value = true;
           _startPing();
-          if (_subs.isNotEmpty) _t?.send(encodeSubscribe(_nextId(), _subs.keys.toList()));
+          if (_subs.isNotEmpty) {
+            _t?.send(encodeSubscribe(_nextId(), _subs.keys.toList()));
+          }
           onConnected?.call();
         } else {
-          debugPrint('mqtt: connection refused, code ${p.body.isNotEmpty ? p.body.last : '?'}');
-          _closed = p.body.length >= 2 && (p.body[1] == 4 || p.body[1] == 5); // bad credentials: do not hammer
+          debugPrint(
+            'mqtt: connection refused, code ${p.body.isNotEmpty ? p.body.last : '?'}',
+          );
+          _closed =
+              p.body.length >= 2 &&
+              (p.body[1] == 4 ||
+                  p.body[1] == 5); // bad credentials: do not hammer
           _t?.close();
           if (!_closed) _retry();
           connected.value = false;
@@ -143,7 +159,10 @@ class MqttClient {
       case mqttPublish:
         final m = decodePublish(p);
         final cb = _subs[m.topic];
-        if (cb != null) cb(m.topic, m.payload);
+        if (cb != null &&
+            !(p.flags & 1 != 0 && _ignoreRetained.contains(m.topic))) {
+          cb(m.topic, m.payload);
+        }
       case mqttPingresp:
       case mqttSuback:
         break;
@@ -175,7 +194,16 @@ class MqttClient {
     _t?.send(encodePublish(topic, payload, retain: retain));
   }
 
-  void subscribe(String topic, void Function(String topic, String payload) onMessage) {
+  void subscribe(
+    String topic,
+    void Function(String topic, String payload) onMessage, {
+    bool ignoreRetained = false,
+  }) {
+    if (ignoreRetained) {
+      _ignoreRetained.add(topic);
+    } else {
+      _ignoreRetained.remove(topic);
+    }
     _subs[topic] = onMessage;
     if (connected.value) _t?.send(encodeSubscribe(_nextId(), [topic]));
   }

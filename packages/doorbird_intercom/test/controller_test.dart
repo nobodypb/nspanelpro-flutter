@@ -27,6 +27,32 @@ void main() {
     expect(holds, [true, false]);
     expect(transport.calls, ['open', 'volume:0.5']);
   });
+  test(
+    'ring mixes without altering microphone, gain or conversation holds',
+    () async {
+      await controller.open({});
+      transport.emit('preview');
+      await controller.ring(.6);
+      expect(controller.state, IntercomState.preview);
+      await controller.speak();
+      await controller.ring(.2);
+      expect(controller.state, IntercomState.talking);
+      await controller.mute();
+      await controller.ring(.2);
+      expect(controller.state, IntercomState.muted);
+      expect(controller.volume, .5);
+      expect(transport.calls.where((c) => c.startsWith('ring:')), [
+        'ring:0.6',
+        'ring:0.2',
+        'ring:0.2',
+      ]);
+      expect(transport.calls.where((c) => c.startsWith('mic:')), [
+        'mic:true',
+        'mic:false',
+      ]);
+      expect(holds, [true, false, true]);
+    },
+  );
   test('explicit speaking, mute, unmute and close release the hold', () async {
     await controller.open({});
     transport.emit('preview');

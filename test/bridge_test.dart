@@ -42,8 +42,8 @@ class _Broker implements MqttTransport {
     }
   }
 
-  void deliver(String topic, String payload) =>
-      _out.add(encodePublish(topic, payload));
+  void deliver(String topic, String payload, {bool retain = false}) =>
+      _out.add(encodePublish(topic, payload, retain: retain));
 
   @override
   Future<void> close() => _out.close();
@@ -72,11 +72,30 @@ void main() {
       onPlay: (u) => commands.add('play $u'),
       onStop: () => commands.add('stop'),
       onWake: () => commands.add('wake'),
+      onLocalCommand: (v) => commands.add('local ${v['type']}'),
       onSetting: (o, v) => commands.add('setting $o $v'),
     );
   });
 
   tearDown(() => mqtt.dispose());
+
+  test(
+    'local commands ignore retained replay and malformed payloads',
+    () async {
+      bridge.start();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      broker.deliver(
+        'nspanel/abc123/local/set',
+        '{"type":"example"}',
+        retain: true,
+      );
+      broker.deliver('nspanel/abc123/local/set', 'not json');
+      broker.deliver('nspanel/abc123/local/set', '[]');
+      broker.deliver('nspanel/abc123/local/set', '{"type":"example"}');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(commands, ['local example']);
+    },
+  );
 
   test('every entity belongs to one device and points at the same availability topic', () {
     final configs = bridge.discoveryConfigs();
