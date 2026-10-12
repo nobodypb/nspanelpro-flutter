@@ -242,7 +242,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
             counters?.ensureUpdated()
             return "player=${video?.playbackState} position_ms=${video?.currentPosition} buffer_ms=${video?.totalBufferedDuration} " +
                 "frame_age_ms=${if (lastVideoAt == 0L) -1 else now - lastVideoAt} pts_us=$lastVideoPtsUs " +
-                "input=${counters?.inputBufferCount} rendered=${counters?.renderedOutputBufferCount} dropped=${counters?.droppedBufferCount}"
+                "input=${counters?.queuedInputBufferCount} rendered=${counters?.renderedOutputBufferCount} dropped=${counters?.droppedBufferCount}"
         }
 
         private fun videoUnavailable(reason: String, code: Int = 0) {
