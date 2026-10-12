@@ -78,6 +78,24 @@ class DisplaySession {
   StreamSubscription<double>? _sensor;
   ProximityPresence? _presence;
   ScreensaverConfig? _sensorConfig;
+  Map<String, Object?> get proximityDiagnostics => {
+    'mode': _presence == null
+        ? 'inactive'
+        : _sensorConfig!.proximityAbove != null ||
+              _sensorConfig!.proximityBelow != null
+        ? 'absolute'
+        : _sensorConfig!.proximityAdaptive
+        ? 'adaptive'
+        : 'fixed',
+    'baseline': _presence?.detector.baseline,
+    'noise': _presence?.detector.noise,
+    'threshold': _presence?.detector.threshold,
+    'near': _presence?.near ?? false,
+    'dark': !controller.interactive,
+    'entries': _presence?.detector.entries ?? 0,
+    'recalibrations': _presence?.detector.recalibrations ?? 0,
+    'last_entry': _presence?.detector.lastEntry,
+  };
   bool _disposed = false;
   bool _updating = false;
 
@@ -114,7 +132,10 @@ class DisplaySession {
     if (_sensor == null ||
         old?.proximityAbove != s.proximityAbove ||
         old?.proximityBelow != s.proximityBelow ||
-        old?.proximityDelta != s.proximityDelta) {
+        old?.proximityDelta != s.proximityDelta ||
+        old?.proximityAdaptive != s.proximityAdaptive ||
+        old?.proximityNoiseMultiplier != s.proximityNoiseMultiplier ||
+        old?.proximityRecalibrateSeconds != s.proximityRecalibrateSeconds) {
       _sensor?.cancel();
       _presence?.dispose();
       _sensorConfig = s;

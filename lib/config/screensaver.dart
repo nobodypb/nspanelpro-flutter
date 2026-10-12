@@ -24,6 +24,9 @@ class ScreensaverConfig {
     this.wakeOnProximity = true,
     this.keepAwakeOnProximity = false,
     this.proximityDelta = 12,
+    this.proximityAdaptive = false,
+    this.proximityNoiseMultiplier = 4,
+    this.proximityRecalibrateSeconds = 30,
     this.proximityBelow,
     this.proximityAbove,
   });
@@ -76,6 +79,16 @@ class ScreensaverConfig {
   final bool wakeOnProximity;
   final bool keepAwakeOnProximity;
   final double proximityDelta;
+
+  /// Learn the noise as well as the baseline. Absolute overrides still win.
+  final bool proximityAdaptive;
+
+  /// Lower values wake more readily; higher values tolerate more noise.
+  /// A robust noise multiple, not a promised false-wake probability.
+  final double proximityNoiseMultiplier;
+
+  /// Relearn a weak stable plateau after this delay; zero disables recovery.
+  final int proximityRecalibrateSeconds;
   final double? proximityBelow;
   final double? proximityAbove;
 
@@ -106,9 +119,20 @@ class ScreensaverConfig {
         : true,
     keepAwakeOnProximity: m['keep_awake_on_proximity'] == true,
     proximityDelta: (m['proximity_delta'] as num?)?.toDouble() ?? 12,
+    proximityAdaptive: m['proximity_adaptive'] == true,
+    proximityRecalibrateSeconds: recalibrateSeconds(
+      m['proximity_recalibrate_after'],
+    ),
+    proximityNoiseMultiplier: noiseMultiplier(m['proximity_noise_multiplier']),
     proximityBelow: (m['proximity_below'] as num?)?.toDouble(),
     proximityAbove: (m['proximity_above'] as num?)?.toDouble(),
   );
+
+  static double noiseMultiplier(dynamic value) =>
+      value is num && value.isFinite ? value.toDouble().clamp(1, 8) : 4;
+
+  static int recalibrateSeconds(dynamic value) =>
+      value is num && value.isFinite ? value.toInt().clamp(0, 300) : 30;
 
   /// The same config with the panel's own settings from Home Assistant laid
   /// over it: the keys a person changed on the panel's device page win over
@@ -137,6 +161,15 @@ class ScreensaverConfig {
       proximityDelta:
           (o['proximity_delta'] as num?)?.toDouble().clamp(1, 1000) ??
           proximityDelta,
+      proximityAdaptive: o['proximity_adaptive'] is bool
+          ? o['proximity_adaptive'] as bool
+          : proximityAdaptive,
+      proximityNoiseMultiplier: o.containsKey('proximity_noise_multiplier')
+          ? noiseMultiplier(o['proximity_noise_multiplier'])
+          : proximityNoiseMultiplier,
+      proximityRecalibrateSeconds: o.containsKey('proximity_recalibrate_after')
+          ? recalibrateSeconds(o['proximity_recalibrate_after'])
+          : proximityRecalibrateSeconds,
       // An explicit MQTT upper threshold replaces either absolute card bound.
       // Zero selects the learned resting level again.
       proximityBelow: o.containsKey('proximity_above') ? null : proximityBelow,

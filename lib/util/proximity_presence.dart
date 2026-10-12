@@ -1,80 +1,63 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import '../config/screensaver.dart';
+import 'proximity_detector.dart';
 
-/// Level detector, separate from MQTT's telemetry/presence pulse semantics.
-/// Never expires an unchanged value: Android sensors may be on-change only.
+/// App-lifetime adapter; the pure detector is also used by offline replay.
 class ProximityPresence {
-  ProximityPresence(this.config, this.onChanged);
-  final ScreensaverConfig config;
+  ProximityPresence(ScreensaverConfig config, this.onChanged)
+    : detector = ProximityDetector(
+        delta: config.proximityDelta,
+        above: config.proximityAbove,
+        below: config.proximityBelow,
+        adaptive: config.proximityAdaptive,
+        noiseMultiplier: config.proximityNoiseMultiplier,
+        recalibrateSeconds: config.proximityRecalibrateSeconds,
+      );
+
   final void Function(bool) onChanged;
-  bool near = false, _dark = false;
-  int _hits = 0;
-  final _rest = <bool, double>{};
-  final _samples = <double>[];
+  final ProximityDetector detector;
+  final _clock = Stopwatch()..start();
   Timer? _leave;
+  int? _scheduledLeave;
+  bool _reported = false;
+  bool get near => detector.near;
 
   void dark(bool value) {
-    if (_dark == value) return;
-    _dark = value;
-    _samples.clear();
-    _hits = 0;
-    _leave?.cancel();
-    _leave = null;
+    detector.dark(value);
+    _sync();
   }
 
   void feed(double value) {
-    if (!value.isFinite) return;
-    bool enter, leave;
-    if (config.proximityAbove != null || config.proximityBelow != null) {
-      final above = config.proximityAbove, below = config.proximityBelow;
-      enter =
-          (above != null && value > above) || (below != null && value < below);
-      leave =
-          (above == null || value < above * .8) &&
-          (below == null || value > below * 1.2);
-    } else {
-      var base = _rest[_dark];
-      if (base == null) {
-        // A known near reading must not become the new resting level.
-        if (near) {
-          base = _rest[!_dark];
-        } else {
-          _samples.add(value);
-          if (_samples.length < 20) return;
-          _samples.sort();
-          base = _rest[_dark] = _samples[_samples.length ~/ 2];
-          _samples.clear();
-        }
-      }
-      if (base == null) return;
-      final threshold = math.max(config.proximityDelta, base.abs() * .15);
-      final distance = (value - base).abs();
-      enter = distance > threshold;
-      leave = distance < threshold * .8;
-      if (!near && !enter) _rest[_dark] = base * .99 + value * .01;
-    }
-    if (!near) {
-      _hits = enter ? _hits + 1 : 0;
-      if (_hits >= 2) {
-        near = true;
-        onChanged(true);
-      }
-    } else if (leave) {
-      _leave ??= Timer(const Duration(milliseconds: 500), () {
-        _leave = null;
-        near = false;
-        _hits = 0;
-        onChanged(false);
-      });
-    } else {
+    detector.feed(value, _clock.elapsedMilliseconds);
+    _sync();
+  }
+
+  void _sync() {
+    if (_scheduledLeave != detector.leaveAt) {
       _leave?.cancel();
-      _leave = null;
+      _scheduledLeave = detector.leaveAt;
+      final at = _scheduledLeave;
+      if (at != null) {
+        _leave = Timer(
+          Duration(
+            milliseconds: (at - _clock.elapsedMilliseconds).clamp(0, 500),
+          ),
+          () {
+            detector.advance(at);
+            _sync();
+          },
+        );
+      }
+    }
+    if (_reported != detector.near) {
+      _reported = detector.near;
+      onChanged(_reported);
     }
   }
 
   void dispose() {
     _leave?.cancel();
+    _clock.stop();
   }
 }
