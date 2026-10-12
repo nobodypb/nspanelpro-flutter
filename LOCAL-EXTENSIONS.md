@@ -144,7 +144,9 @@ preview with an explicit video-connection status.
 Retry delays are 1, 2, 5, 10 and then 15 seconds, capped while the audio session
 remains healthy. A single rendered frame does not reset the backoff; ten seconds
 of stable video do. Initial frame timeout is ten seconds, video-stall timeout five
-seconds while playing, with a bounded ten-second grace while Media3 is buffering.
+seconds while playing, with a bounded ten-second grace after Media3 reports buffering, until an actual
+new decoded frame arrives. READY alone must not cut this grace short while the
+renderer waits for the next keyframe; repeated buffering cannot extend it.
 The RTSP read timeout is twelve seconds so it cannot end the stream before this
 recovery policy decides. A recovered long frame gap resets the healthy-video
 window for backoff. Generation checks discard callbacks from released players. End,

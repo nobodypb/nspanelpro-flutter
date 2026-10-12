@@ -14,10 +14,20 @@ class VideoRecoveryTest {
         val video = VideoRecovery(); video.started(0); video.frame(100)
         assertTrue(video.stalled(6100))
         assertFalse(video.stalled(6100, buffering = true))
+        assertFalse(video.stalled(7100)) // READY but no new decoded frame yet
         video.frame(8100)
         assertFalse(video.stalled(9000))
         assertFalse(video.stalled(18099, buffering = true))
         assertTrue(video.stalled(18100, buffering = true))
+    }
+    @Test fun shortBufferingTransitionKeepsGraceButCannotExtendItsDeadline() {
+        val video = VideoRecovery(); video.started(0); video.frame(100)
+        video.buffering()
+        assertFalse(video.stalled(6000))
+        video.buffering()
+        assertTrue(video.stalled(10100))
+        video.frame(10200)
+        assertTrue(video.stalled(15200)) // normal decoder deadline restored
     }
     @Test fun aRecoveredBufferGapDoesNotCountAsContinuousHealthyVideo() {
         val video = VideoRecovery(); video.failed(0); video.started(1000)
