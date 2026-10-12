@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+enum IntercomVideoState { connecting, live, reconnecting }
+
 enum IntercomState {
   idle,
   opening,
@@ -69,6 +71,7 @@ class IntercomController extends ChangeNotifier {
   final Future<void> Function()? beforeOpen;
   late final StreamSubscription<Map<String, dynamic>> _events;
   IntercomState state = IntercomState.idle;
+  IntercomVideoState videoState = IntercomVideoState.connecting;
   int _generation = 0;
   int? texture;
   double aspectRatio = 4 / 3;
@@ -101,6 +104,7 @@ class IntercomController extends ChangeNotifier {
     error = null;
     texture = null;
     metrics = const {};
+    videoState = IntercomVideoState.connecting;
     _set(IntercomState.opening);
     _timeout?.cancel();
     _timeout = Timer(const Duration(seconds: 10), () {
@@ -192,6 +196,14 @@ class IntercomController extends ChangeNotifier {
       case 'muted':
         _timeout?.cancel();
         _set(IntercomState.muted);
+      case 'video_state':
+        final value = e['state'];
+        if (value == 'live' || value == 'reconnecting') {
+          videoState = value == 'live'
+              ? IntercomVideoState.live
+              : IntercomVideoState.reconnecting;
+          notifyListeners();
+        }
       case 'video':
         final w = e['width'] as num?, h = e['height'] as num?;
         if (w != null && h != null && w > 0 && h > 0) aspectRatio = w / h;

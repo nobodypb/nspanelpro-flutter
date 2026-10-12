@@ -251,10 +251,20 @@ class _CameraViewState extends State<IntercomCameraView> {
               IntercomState.talking => 'Gespräch · Mikrofon an',
               IntercomState.muted => 'Gespräch · Mikrofon aus',
               IntercomState.ending => 'Beenden · Mikrofon aus',
-              _ => 'Live · Hören · Mikrofon aus',
+              _ =>
+                c.videoState == IntercomVideoState.live
+                    ? 'Live · Hören · Mikrofon aus'
+                    : 'Hören · Mikrofon aus',
             };
+      final videoNote =
+          active && ready && c.videoState != IntercomVideoState.live
+          ? c.videoState == IntercomVideoState.reconnecting
+                ? 'Video verbindet erneut …'
+                : 'Video wird verbunden …'
+          : null;
       final hasVideo =
           active &&
+          c.videoState == IntercomVideoState.live &&
           c.texture != null &&
           (c.metrics['video_frames'] as num? ?? 0) > 0;
       return Column(
@@ -290,7 +300,7 @@ class _CameraViewState extends State<IntercomCameraView> {
             height: 32,
             child: Center(
               child: Text(
-                state,
+                videoNote == null ? state : '$state\n$videoNote',
                 key: const ValueKey('camera-status'),
                 maxLines: 2,
                 textAlign: TextAlign.center,
