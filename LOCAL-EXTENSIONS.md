@@ -147,8 +147,9 @@ of stable video do. Initial frame timeout is ten seconds, video-stall timeout fi
 seconds while playing, with a bounded ten-second grace after Media3 reports buffering, until an actual
 new decoded frame arrives. READY alone must not cut this grace short while the
 renderer waits for the next keyframe; repeated buffering cannot extend it.
-The RTSP read timeout is twelve seconds so it cannot end the stream before this
-recovery policy decides. A recovered long frame gap resets the healthy-video
+The RTSP read timeout is twelve seconds to avoid terminating brief transport
+gaps at five seconds. A prolonged transport EOF still triggers recovery, even
+when already buffered pictures have not yet reached their frame deadline. A recovered long frame gap resets the healthy-video
 window for backoff. Generation checks discard callbacks from released players. End,
 background and screen-off cancel retries. Audio failure still terminates the
 session and never automatically reactivates the microphone.

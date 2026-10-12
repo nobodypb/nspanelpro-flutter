@@ -41,7 +41,7 @@ class VideoRecovery {
     companion object {
         const val FRAME_TIMEOUT_MS = 5000L
         const val BUFFERING_TIMEOUT_MS = 10000L
-        // The owner/watchdog, not the RTP queue's read timeout, decides recovery.
+        // Allow brief transport gaps; prolonged RTP silence may still end the stream.
         const val RTSP_TIMEOUT_MS = 12000L
         private val delays = longArrayOf(1000, 2000, 5000, 10000, 15000)
     }
