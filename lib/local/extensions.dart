@@ -11,10 +11,12 @@ class LocalExtensions {
     required VoidCallback Function() holdDisplay,
     required VoidCallback Function() holdNavigation,
     required Future<void> Function() beforeMedia,
+    Future<bool> Function(String, String, Map<String, dynamic>)? callService,
   }) : _doorbird = DoorBirdExtension(
          holdDisplay: holdDisplay,
          holdNavigation: holdNavigation,
          beforeMedia: beforeMedia,
+         callService: callService,
        );
   static Future<void> provision(Map<String, dynamic> input) =>
       DoorBirdProfiles.provision(input);

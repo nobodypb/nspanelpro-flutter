@@ -242,3 +242,9 @@ The panel ROM may report a 432px accessibility content bound while its immersive
 window visibly draws and accepts touch across 480px. Do not mistake these clipped
 accessibility rectangles for actual target sizes: verify rendered bounds and a
 tap near the lower edge. A controls-only crop avoids recording camera content.
+
+With a configured DoorBird opener, keep the same four 108×76 bottom targets and
+picture geometry: Live/End, Speak/Mute, Volume, Door buzzer. Volume opens the
+shared level sheet with its large step buttons. Door buzzer opens a shared
+confirmation sheet with Cancel and Trigger. Trigger is locked after one attempt;
+show command acknowledgement or an uncertain-result error independently of colour.
