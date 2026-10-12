@@ -297,6 +297,7 @@ class IntercomPlugin(private val context: Context, private val textures: Texture
                         if (currentVideo(video, generation)) videoUnavailable("player_error", error.errorCode)
                     }
                     override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_BUFFERING && currentVideo(video, generation)) videoRecovery.buffering()
                         if (state == Player.STATE_ENDED && currentVideo(video, generation)) videoUnavailable("stream_ended")
                     }
                 })

@@ -7,18 +7,25 @@ class VideoRecovery {
     private var lastFrame: Long? = null
     private var healthySince: Long? = null
     private var retryAt: Long? = null
+    private var recoveringBuffer = false
     fun started(now: Long) {
-        startedAt = now; lastFrame = null; healthySince = null; retryAt = null
+        startedAt = now; lastFrame = null; healthySince = null; retryAt = null; recoveringBuffer = false
     }
     fun frame(now: Long) {
+        recoveringBuffer = false
         if (lastFrame != null && now - lastFrame!! >= FRAME_TIMEOUT_MS) healthySince = null
         lastFrame = now
         if (healthySince == null) healthySince = now
         if (now - healthySince!! >= 10000) failures = 0
     }
-    fun stalled(now: Long, buffering: Boolean = false): Boolean =
-        if (lastFrame == null) now - startedAt >= BUFFERING_TIMEOUT_MS
-        else now - lastFrame!! >= if (buffering) BUFFERING_TIMEOUT_MS else FRAME_TIMEOUT_MS
+    // READY can precede the next decodable keyframe after a packet gap. Keep
+    // the bounded grace until a frame actually returns, not just a state change.
+    fun buffering() { recoveringBuffer = true }
+    fun stalled(now: Long, buffering: Boolean = false): Boolean {
+        if (buffering) recoveringBuffer = true
+        return if (lastFrame == null) now - startedAt >= BUFFERING_TIMEOUT_MS
+        else now - lastFrame!! >= if (recoveringBuffer) BUFFERING_TIMEOUT_MS else FRAME_TIMEOUT_MS
+    }
     fun failed(now: Long): Long {
         val delay = delays[failures.coerceAtMost(delays.lastIndex)]
         if (failures < delays.lastIndex) failures++
