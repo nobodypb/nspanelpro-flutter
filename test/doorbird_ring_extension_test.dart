@@ -31,52 +31,49 @@ class _Tone implements DoorBirdRingtone {
 
 void main() {
   for (final mode in ['preview', 'talking', 'muted']) {
-    test(
-      'full-volume ring preserves $mode media and microphone state',
-      () async {
-        final media = FakeIntercom();
-        final tone = _Tone()..gate.complete();
-        final shown = ValueNotifier(0);
-        final navigation = PanelNavigation();
-        navigation.configure(
-          count: 4,
-          start: 3,
-          after: 15,
-          overrides: {0: 60},
-          structure: 'test',
-        );
-        final extension = DoorBirdExtension(
-          transport: media,
-          ringtone: tone,
-          navigation: navigation,
-          shownPage: shown,
-          foreground: () => true,
-          canShow: (page) => page == 0,
-          holdDisplay: () => () {},
-          holdNavigation: navigation.hold,
-          beforeMedia: () async {},
-        );
-        await extension.controller.open({});
-        media.emit('preview');
-        if (mode != 'preview') await extension.controller.speak();
-        if (mode == 'muted') await extension.controller.mute();
-        final state = extension.controller.state;
-        media.calls.clear();
-        extension.rings!.command({
-          'type': 'doorbird.ring',
-          'page': 0,
-          'event_id': DateTime.now().toUtc().toIso8601String(),
-        });
-        await Future<void>.delayed(Duration.zero);
-        expect(media.calls, ['ring:1.0']);
-        expect(extension.controller.state, state);
-        expect(tone.plays, 0);
-        extension.dispose();
-        navigation.dispose();
-        shown.dispose();
-        await media.stream.close();
-      },
-    );
+    test('ring volume preserves $mode media and microphone state', () async {
+      final media = FakeIntercom();
+      final tone = _Tone()..gate.complete();
+      final shown = ValueNotifier(0);
+      final navigation = PanelNavigation();
+      navigation.configure(
+        count: 4,
+        start: 3,
+        after: 15,
+        overrides: {0: 60},
+        structure: 'test',
+      );
+      final extension = DoorBirdExtension(
+        transport: media,
+        ringtone: tone,
+        navigation: navigation,
+        shownPage: shown,
+        foreground: () => true,
+        canShow: (page) => page == 0,
+        holdDisplay: () => () {},
+        holdNavigation: navigation.hold,
+        beforeMedia: () async {},
+      );
+      await extension.controller.open({});
+      media.emit('preview');
+      if (mode != 'preview') await extension.controller.speak();
+      if (mode == 'muted') await extension.controller.mute();
+      final state = extension.controller.state;
+      media.calls.clear();
+      extension.rings!.command({
+        'type': 'doorbird.ring',
+        'page': 0,
+        'event_id': DateTime.now().toUtc().toIso8601String(),
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(media.calls, [mode == 'preview' ? 'ring:1.0' : 'ring:0.5']);
+      expect(extension.controller.state, state);
+      expect(tone.plays, 0);
+      extension.dispose();
+      navigation.dispose();
+      shown.dispose();
+      await media.stream.close();
+    });
   }
 
   testWidgets(
