@@ -26,6 +26,7 @@ class ProximityDetector {
   int entries = 0, recalibrations = 0;
   bool _strong = false;
   int _strongHits = 0, _strongDirection = 0;
+  int? _weakAfterStrong;
   // Evidence belongs to a display model, not to the current near episode.
   final _weak = <bool, _WeakEvidence>{};
   int? _darkAt, _rapidAt;
@@ -60,6 +61,7 @@ class ProximityDetector {
     _darkAt = now ?? _now;
     _samples.clear();
     _hits = _strongHits = 0;
+    _weakAfterStrong = null;
     leaveAt = null;
     // Preserve the other model's candidate; never mix its samples.
     // Do not let time spent in the other display state advance learning.
@@ -98,7 +100,10 @@ class ProximityDetector {
         m.resume(clear: true);
       }
     }
-    if (gap < 0 || gap > 1000) _strongHits = 0;
+    if (gap < 0 || gap > 1000) {
+      _strongHits = 0;
+      _weakAfterStrong = null;
+    }
     double? evaluatedThreshold, evaluatedBase;
     bool enter, leave;
     if (above != null || below != null) {
@@ -139,6 +144,18 @@ class ProximityDetector {
         if (_strongHits >= 2) {
           _strong = true;
           _clearEvidence('strong', now);
+        }
+        // A historical strong approach must not protect a later weak plateau
+        // forever. Require two seconds of fresh, continuously non-strong data;
+        // only then can a NEW full recovery interval begin.
+        if (_strong && difference.abs() <= limit * 2) {
+          _weakAfterStrong ??= now;
+          if (now - _weakAfterStrong! >= 2000) _strong = false;
+        } else {
+          _weakAfterStrong = null;
+        }
+        if (near && !_strong && !leave && recalibrateSeconds > 0) {
+          _weak.putIfAbsent(_dark, () => _WeakEvidence(now, difference));
         }
         if (_recoverWeak(value, now, model, leave: leave)) return;
       }
@@ -401,11 +418,13 @@ class _RestModel {
 }
 
 class _WeakEvidence {
-  _WeakEvidence(this.since, double difference) : direction = difference.sign;
+  _WeakEvidence(this.since, double difference)
+    : direction = difference.sign,
+      lastAt = since;
   final int since;
   final double direction;
   int? restSince;
-  int lastAt = 0;
+  int lastAt;
   final samples = <({double value, int at})>[];
   void add(double value, int now) {
     if (samples.isNotEmpty && now - samples.last.at < 100) return;
