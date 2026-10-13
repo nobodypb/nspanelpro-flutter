@@ -73,6 +73,20 @@ class MainActivity : FlutterActivity() {
     }
     private var lifecycleGeneration = 0
     private val power get() = getSystemService(Context.POWER_SERVICE) as PowerManager
+    private var startedWhileDark = false
+
+    private fun refreshInsetsAfterDarkStart() {
+        if (!startedWhileDark || !power.isInteractive) return
+        // On Android 8.1, Flutter can classify the hidden navigation bar's 48px
+        // inset as a keyboard while the root view has no height at dark startup.
+        // Ask FlutterView to calculate insets again after the display is laid out.
+        displayHandler.postDelayed({
+            if (startedWhileDark && power.isInteractive) {
+                window.decorView.requestApplyInsets()
+                startedWhileDark = false
+            }
+        }, 100)
+    }
 
     private fun emitDisplay(kind: String, accepted: Boolean = false) {
         if (kind != "touch") PanelTrace.record("display", mapOf(
@@ -111,6 +125,7 @@ class MainActivity : FlutterActivity() {
     private val displayReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             syncScreen()
+            if (intent.action == Intent.ACTION_SCREEN_ON) refreshInsetsAfterDarkStart()
             if (intent.action == "android.system.gestures.touchDown") {
                 PanelTrace.record("touch", mapOf("action" to "vendor_down",
                     "interactive" to power.isInteractive, "foreground" to foreground,
@@ -166,6 +181,7 @@ class MainActivity : FlutterActivity() {
         foreground = true
         restoreSystemTimeout()
         syncScreen()
+        refreshInsetsAfterDarkStart()
         emitDisplay("lifecycle")
     }
 
@@ -214,6 +230,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        startedWhileDark = !power.isInteractive
         touchGuard = WakeTouchGuard({ SystemClock.uptimeMillis() }, power.isInteractive)
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
