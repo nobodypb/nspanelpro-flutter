@@ -60,8 +60,12 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
   /// The thermostat's own limits unless the config narrows them - worth
   /// doing: 7-35 makes every drag a wild one.
   ({double min, double max}) _range(HaState? s) {
-    final min = c['min'] is num ? c.numOr('min', 7) : (s?.numAttr('min_temp') ?? 7);
-    var max = c['max'] is num ? c.numOr('max', 35) : (s?.numAttr('max_temp') ?? 35);
+    final min = c['min'] is num
+        ? c.numOr('min', 7)
+        : (s?.numAttr('min_temp') ?? 7);
+    var max = c['max'] is num
+        ? c.numOr('max', 35)
+        : (s?.numAttr('max_temp') ?? 35);
     if (max <= min) max = min + 1;
     return (min: min, max: max);
   }
@@ -88,14 +92,33 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
     return ((raw / step).round() * step).clamp(r.min, r.max);
   }
 
-  Future<void> _call(String service, [Map<String, dynamic>? data]) =>
-      widget.env.conn.callService('climate', service, {'entity_id': entity, ...?data});
+  Future<bool> _call(String service, [Map<String, dynamic>? data]) => widget
+      .env
+      .conn
+      .callService('climate', service, {'entity_id': entity, ...?data});
 
-  void _commit(double v, HaState? s) => _call('set_temperature', {'temperature': _degrees(v, s)});
+  Future<bool> _commit(double v, HaState? s) =>
+      _call('set_temperature', {'temperature': _degrees(v, s)});
 
   void _applyPreset(CardConfig p, HaState? s) {
-    if (p['hvac_mode'] != null) _call('set_hvac_mode', {'hvac_mode': p['hvac_mode']});
-    if (p['preset_mode'] != null) _call('set_preset_mode', {'preset_mode': p['preset_mode']});
+    if (p['hvac_mode'] == null &&
+        p['preset_mode'] == null &&
+        p['temperature'] is! num) {
+      return;
+    }
+    widget.env.recordUsage(
+      context,
+      entity,
+      'nspanel-climate-card',
+      'tap',
+      result: 'unknown',
+    );
+    if (p['hvac_mode'] != null) {
+      _call('set_hvac_mode', {'hvac_mode': p['hvac_mode']});
+    }
+    if (p['preset_mode'] != null) {
+      _call('set_preset_mode', {'preset_mode': p['preset_mode']});
+    }
     final t = (p['temperature'] as num?)?.toDouble();
     if (t != null) {
       _call('set_temperature', {'temperature': t});
@@ -108,7 +131,9 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
     if (s == null) return '';
     final now = s.numAttr('current_temperature');
     final action = s.attr<String>('hvac_action');
-    final label = action != null ? capitalise(action) : (_hvacLabels[s.state] ?? s.state);
+    final label = action != null
+        ? capitalise(action)
+        : (_hvacLabels[s.state] ?? s.state);
     return now != null ? 'Now ${fmt(now, 1)}° · $label' : label;
   }
 
@@ -152,7 +177,8 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
         final off = s == null || s.state == 'off';
         final v = display(_entityValue(s));
         final target = _degrees(v, s);
-        final showPresets = c.boolOr('show_presets', true) && presets.isNotEmpty;
+        final showPresets =
+            c.boolOr('show_presets', true) && presets.isNotEmpty;
 
         return FillCard(
           height: c.numOr('height', 200),
@@ -162,7 +188,12 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
           on: !off && !broken,
           broken: broken,
           leading: IconBox(
-            mdi(c.str('icon') ?? s?.attr<String>('icon') ?? _hvacIcons[s?.state ?? 'off'], MdiIcons.thermostat),
+            mdi(
+              c.str('icon') ??
+                  s?.attr<String>('icon') ??
+                  _hvacIcons[s?.state ?? 'off'],
+              MdiIcons.thermostat,
+            ),
             on: !off && !broken,
           ),
           value: broken || off ? null : ValueText(fmt(target, 1), unit: '°'),
@@ -171,11 +202,32 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
           chips: showPresets
               ? [
                   for (final p in presets.take(4))
-                    ChipSpec(label: p.str('name') ?? '${p['temperature']}°', onTap: () => _applyPreset(p, s)),
+                    ChipSpec(
+                      label: p.str('name') ?? '${p['temperature']}°',
+                      onTap: () => _applyPreset(p, s),
+                    ),
                 ]
               : const [],
-          onTap: () => _openSheet(s),
-          onLongPress: () => _openSheet(s),
+          onTap: () {
+            widget.env.recordUsage(
+              context,
+              entity,
+              'nspanel-climate-card',
+              'tap',
+              result: 'detail',
+            );
+            _openSheet(s);
+          },
+          onLongPress: () {
+            widget.env.recordUsage(
+              context,
+              entity,
+              'nspanel-climate-card',
+              'hold',
+              result: 'detail',
+            );
+            _openSheet(s);
+          },
           onDragValue: (nv) {
             dragging = true;
             setLocal(nv);
@@ -183,7 +235,13 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
           onDragEnd: (nv) {
             dragging = false;
             holdLocal(nv, echoMs);
-            _commit(nv, s);
+            widget.env.trackCall(
+              context,
+              entity,
+              'nspanel-climate-card',
+              'drag',
+              () => _commit(nv, s),
+            );
           },
         );
       },

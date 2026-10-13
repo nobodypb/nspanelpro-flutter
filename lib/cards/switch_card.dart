@@ -137,9 +137,9 @@ class _SwitchCardState extends State<SwitchCard> {
     return widget.env.states.get(s.entity)?.state == 'on';
   }
 
-  Future<void> _press(_Sw s) async {
+  Future<void> _press(_Sw s, String gesture) async {
     if (s.entity.startsWith('fan.')) {
-      await _pressFan(s);
+      await _pressFan(s, gesture);
       return;
     }
     final current = widget.env.states.get(s.entity);
@@ -152,10 +152,16 @@ class _SwitchCardState extends State<SwitchCard> {
       s.localUntil = DateTime.now().add(Duration(milliseconds: echo));
     });
     final revision = ++s.revision;
-    final result = widget.env.conn.callService(
-      'homeassistant',
-      on ? 'turn_on' : 'turn_off',
-      {'entity_id': s.entity},
+    final result = widget.env.trackCall(
+      context,
+      s.entity,
+      'nspanel-switch-card',
+      gesture,
+      () => widget.env.conn.callService(
+        'homeassistant',
+        on ? 'turn_on' : 'turn_off',
+        {'entity_id': s.entity},
+      ),
     );
     _timers.add(
       Timer(Duration(milliseconds: echo + 20), () {
@@ -177,24 +183,48 @@ class _SwitchCardState extends State<SwitchCard> {
     }, widget.env);
   }
 
-  Future<void> _pressFan(_Sw sw) async {
+  Future<void> _pressFan(_Sw sw, String gesture) async {
     final state = widget.env.states.get(sw.entity);
     if (state == null || state.isBroken) return;
     final caps = FanCapabilities(state);
     if (state.isOn ? !caps.turnOff : !caps.turnOn) {
+      if (!c.boolOr('more_info', true)) return;
+      widget.env.recordUsage(
+        context,
+        sw.entity,
+        'nspanel-switch-card',
+        gesture,
+        result: 'detail',
+      );
       _fanDetails(sw);
       return;
     }
     // Let HA confirm fan power; a failed command must not leave a false echo.
-    await widget.env.conn.callService(
-      'fan',
-      state.isOn ? 'turn_off' : 'turn_on',
-      {'entity_id': sw.entity},
+    await widget.env.trackCall(
+      context,
+      sw.entity,
+      'nspanel-switch-card',
+      gesture,
+      () => widget.env.conn.callService(
+        'fan',
+        state.isOn ? 'turn_off' : 'turn_on',
+        {'entity_id': sw.entity},
+      ),
     );
   }
 
-  void _details(_Sw sw) {
+  void _details(_Sw sw, String gesture) {
     if (!c.boolOr('more_info', true)) return;
+    final state = widget.env.states.get(sw.entity);
+    if (state != null && !state.isBroken) {
+      widget.env.recordUsage(
+        context,
+        sw.entity,
+        'nspanel-switch-card',
+        gesture,
+        result: 'detail',
+      );
+    }
     final entity = sw.detailEntity;
     final config = <String, dynamic>{
       'entity': entity,
@@ -296,8 +326,8 @@ class _SwitchCardState extends State<SwitchCard> {
     final circuit = sw.item.str('circuit') ?? '';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: broken ? null : () => _press(sw),
-      onLongPress: () => _details(sw),
+      onTap: broken ? null : () => _press(sw, 'tap'),
+      onLongPress: () => _details(sw, 'hold'),
       child: Opacity(
         opacity: broken ? .45 : 1,
         child: Container(
@@ -377,14 +407,16 @@ class _SwitchCardState extends State<SwitchCard> {
     );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: swap ? () => _details(sw) : (broken ? null : () => _press(sw)),
+      onTap: swap
+          ? () => _details(sw, 'tap')
+          : (broken ? null : () => _press(sw, 'tap')),
       // Recognize even a disabled hold, so releasing it cannot become a tap.
       // Flutter's gesture arena gives horizontal drags back to the pager.
       onLongPress: () {
         if (swap) {
-          if (!broken) _press(sw);
+          if (!broken) _press(sw, 'hold');
         } else {
-          _details(sw);
+          _details(sw, 'hold');
         }
       },
       child: Opacity(

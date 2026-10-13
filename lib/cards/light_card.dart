@@ -33,13 +33,39 @@ class _LightCardState extends State<LightCard> with EchoMixin {
 
   void _applyPreset(CardConfig p) {
     if (!capabilities.allowsPreset(current, p)) return;
-    controls.applyPreset(p);
+    widget.env.trackCall(
+      context,
+      entity,
+      'nspanel-light-card',
+      'tap',
+      () => controls.applyPreset(p),
+    );
     final pct = p['brightness_pct'];
     if (pct is num && p['scene'] == null) holdLocal(pct / 100, echoMs);
   }
 
-  void _details() {
-    if (c.str('long_press') != 'none') _openSheet();
+  void _details(String gesture) {
+    if (c.str('long_press') != 'none' && capabilities.available) {
+      widget.env.recordUsage(
+        context,
+        entity,
+        'nspanel-light-card',
+        gesture,
+        result: 'detail',
+      );
+      _openSheet();
+    }
+  }
+
+  void _toggle(String gesture) {
+    if (!capabilities.available) return;
+    widget.env.trackCall(
+      context,
+      entity,
+      'nspanel-light-card',
+      gesture,
+      () => controls.call('toggle'),
+    );
   }
 
   void _openSheet() {
@@ -104,11 +130,11 @@ class _LightCardState extends State<LightCard> with EchoMixin {
                 ]
               : const [],
           onTap: c.boolOr('swap_press_actions', false)
-              ? _details
-              : () => controls.call('toggle'),
+              ? () => _details('tap')
+              : () => _toggle('tap'),
           onLongPress: c.boolOr('swap_press_actions', false)
-              ? () => controls.call('toggle')
-              : _details,
+              ? () => _toggle('hold')
+              : () => _details('hold'),
           onDragValue: !caps.brightness
               ? null
               : (nv) {
@@ -124,7 +150,13 @@ class _LightCardState extends State<LightCard> with EchoMixin {
               : (nv) {
                   dragging = false;
                   holdLocal(nv, echoMs);
-                  controls.commit(nv);
+                  widget.env.trackCall(
+                    context,
+                    entity,
+                    'nspanel-light-card',
+                    'drag',
+                    () => controls.commit(nv),
+                  );
                 },
         );
       },

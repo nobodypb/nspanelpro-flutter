@@ -16,6 +16,7 @@ import 'sensor_card.dart';
 import 'sensors_card.dart';
 import 'status_card.dart';
 import 'weather_card.dart';
+import 'frequent_card.dart';
 
 /// `custom:nspanel-*` -> a widget. Anything else says so rather than
 /// vanishing, so a dashboard that mixes in an unsupported card still shows
@@ -24,6 +25,8 @@ Widget buildCard(CardConfig c, PanelEnv env) {
   switch (cardType(c)) {
     case 'nspanel-light-card':
       return LightCard(config: c, env: env);
+    case 'nspanel-frequent-card':
+      return FrequentCard(config: c, env: env);
     case 'nspanel-cover-card':
       return CoverCard(config: c, env: env);
     case 'nspanel-climate-card':
@@ -52,9 +55,13 @@ Widget buildCard(CardConfig c, PanelEnv env) {
       // config for the app, read elsewhere; nothing to draw
       return const SizedBox.shrink();
     case 'vertical-stack':
-      return VStack(children: [for (final x in c.maps('cards')) buildCard(x, env)]);
+      return VStack(
+        children: [for (final x in c.maps('cards')) buildCard(x, env)],
+      );
     case 'horizontal-stack':
-      return HStack(children: [for (final x in c.maps('cards')) buildCard(x, env)]);
+      return HStack(
+        children: [for (final x in c.maps('cards')) buildCard(x, env)],
+      );
     case 'grid':
       return GridStack(
         columns: c.intOr('columns', 3).clamp(1, 4),
@@ -72,15 +79,17 @@ class UnsupportedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: BoxDecoration(
-          color: Ns.surface,
-          borderRadius: BorderRadius.circular(Ns.radius),
-          border: Border.all(color: Ns.danger.withValues(alpha: .5)),
-        ),
-        child: Text('Not rendered here: $type',
-            style: const TextStyle(color: Ns.danger, fontSize: 14, height: 1.4)),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+    decoration: BoxDecoration(
+      color: Ns.surface,
+      borderRadius: BorderRadius.circular(Ns.radius),
+      border: Border.all(color: Ns.danger.withValues(alpha: .5)),
+    ),
+    child: Text(
+      'Not rendered here: $type',
+      style: const TextStyle(color: Ns.danger, fontSize: 14, height: 1.4),
+    ),
+  );
 }
 
 /// Lovelace's vertical-stack: cards one above the other with the panel gap.
@@ -90,15 +99,15 @@ class VStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(height: Ns.gap),
-            children[i],
-          ],
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i > 0) const SizedBox(height: Ns.gap),
+        children[i],
+      ],
+    ],
+  );
 }
 
 /// Lovelace's horizontal-stack: equal columns. Each card keeps its own
@@ -110,14 +119,14 @@ class HStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(width: Ns.gap),
-            Expanded(child: children[i]),
-          ],
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i > 0) const SizedBox(width: Ns.gap),
+        Expanded(child: children[i]),
+      ],
+    ],
+  );
 }
 
 /// Lovelace's grid card: `columns` across, wrapping. `square` is ignored;
@@ -131,9 +140,14 @@ class GridStack extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <Widget>[];
     for (var i = 0; i < children.length; i += columns) {
-      rows.add(HStack(children: [
-        for (var j = 0; j < columns; j++) i + j < children.length ? children[i + j] : const SizedBox(),
-      ]));
+      rows.add(
+        HStack(
+          children: [
+            for (var j = 0; j < columns; j++)
+              i + j < children.length ? children[i + j] : const SizedBox(),
+          ],
+        ),
+      );
     }
     return VStack(children: rows);
   }
