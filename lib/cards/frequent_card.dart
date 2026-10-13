@@ -44,8 +44,15 @@ class _FrequentCardState extends State<FrequentCard> {
 
   int get count {
     final raw = config['count'];
-    return raw is int ? raw.clamp(1, 6) : 3;
+    return raw is int ? raw.clamp(1, capacity) : 3;
   }
+
+  int get height {
+    final raw = config['height'];
+    return raw is num && raw >= 162 ? 162 : 126;
+  }
+
+  int get capacity => height == 162 ? 6 : 3;
 
   Set<String> get domains => config
       .listOr('entity_domains')
@@ -69,7 +76,7 @@ class _FrequentCardState extends State<FrequentCard> {
           domains: domains,
         );
         return Container(
-          height: 126,
+          height: height.toDouble(),
           padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           decoration: BoxDecoration(
             color: Ns.surface,
@@ -104,18 +111,22 @@ class _FrequentCardState extends State<FrequentCard> {
                           style: TextStyle(color: Ns.muted, fontSize: 14),
                         ),
                       )
-                    : GridView.builder(
-                        padding: EdgeInsets.zero,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisExtent: 76,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                            ),
-                        itemCount: choices.length,
-                        itemBuilder: (_, i) =>
-                            _tile(context, choices[i], scope.active),
+                    : LayoutBuilder(
+                        builder: (context, constraints) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final choice in choices)
+                                SizedBox(
+                                  width: (constraints.maxWidth - 16) / 3,
+                                  height: 58,
+                                  child: _tile(context, choice, scope.active),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
               ),
             ],
