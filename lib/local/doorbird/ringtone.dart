@@ -33,16 +33,16 @@ class DoorBirdRingtone {
       try {
         original = await Device.volume();
         if (_disposed || generation != _generation) return;
-        if (original != null) changed = await Device.setVolume(60);
+        if (original != null) changed = await Device.setVolume(100);
         await _player.setAsset('assets/sounds/doorbell.wav');
         if (_disposed || generation != _generation) return;
-        debugPrint('local ring: standalone volume=60');
+        debugPrint('local ring: standalone volume=100');
         await _player.play().timeout(const Duration(seconds: 5));
       } catch (_) {
         // A failed chime must not prevent camera navigation or leave a hold.
       } finally {
         await _player.stop();
-        if (changed && original != null && await Device.volume() == 60) {
+        if (changed && original != null && await Device.volume() == 100) {
           await Device.setVolume(original);
           debugPrint('local ring: volume restored');
         }

@@ -68,13 +68,8 @@ class DoorBirdExtension extends ChangeNotifier implements CameraInteraction {
   DoorBirdRingController? rings;
   Future<void> _playRing() async {
     if (controller.inUse && controller.texture != null) {
-      final conversation = {
-        IntercomState.connecting,
-        IntercomState.talking,
-        IntercomState.muted,
-      }.contains(controller.state);
-      debugPrint('local ring: mix gain=${conversation ? .2 : .6}');
-      await controller.ring(conversation ? .2 : .6);
+      debugPrint('local ring: mix gain=1.0');
+      await controller.ring(1);
     } else {
       await _ringtone?.play();
     }
