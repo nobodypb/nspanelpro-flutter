@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/panel_strings.dart';
 
 import '../util/color.dart';
 import 'theme.dart';
@@ -54,12 +55,12 @@ class InfoShell extends StatelessWidget {
                 ]),
               ),
             if (broken)
-              const Positioned(
+              Positioned(
                 top: 12,
                 right: 14,
-                child: Text('OFFLINE',
+                child: Text(context.l10n.offline,
                     style:
-                        TextStyle(color: Ns.danger, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                        const TextStyle(color: Ns.danger, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1)),
               ),
             Padding(padding: padding, child: child),
           ],

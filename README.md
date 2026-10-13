@@ -396,7 +396,14 @@ The app reads it once, saves the settings, and deletes the file. Delete `setup.j
 computer too; it has your token in it. A later file is a **partial** update — only the keys in
 it change — which is how you re-point a panel at a different dashboard, or adjust its
 screensaver, from your desk without re-entering the token. The full set of keys is `url`,
-`token`, `dashboard`, `name`, `mqtt`, `tts_engine`, `screensaver` and `feedback`.
+`token`, `dashboard`, `name`, `mqtt`, `tts_engine`, `screensaver`, `feedback` and `language`.
+
+### Interface language
+
+The setup screen offers **System**, **Deutsch** and **English**. System follows Android's
+language; the choice is saved with the other panel settings. For remote provisioning, set
+`"language": "de"` or `"language": "en"` in `setup.json`; an empty string restores the system
+language. Card titles, entity names and custom preset labels remain as configured.
 
 ### Touch feedback
 

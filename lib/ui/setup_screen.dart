@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/panel_strings.dart';
+
 import '../config/settings.dart';
 import '../update/updater.dart';
 import '../util/proximity.dart';
@@ -13,12 +15,14 @@ class SetupScreen extends StatefulWidget {
     this.initial,
     this.message,
     this.updater,
+    this.onLanguage,
     required this.onSaved,
   });
   final Settings? initial;
   final String? message;
   final Updater? updater;
   final ValueChanged<Settings> onSaved;
+  final ValueChanged<String>? onLanguage;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -43,6 +47,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final _mqttPass = TextEditingController();
   final _token = TextEditingController();
   String? _err;
+  late String _language = widget.initial?.language ?? '';
 
   @override
   void initState() {
@@ -71,7 +76,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ? (widget.initial?.token ?? '')
         : _token.text.trim();
     if (_url.text.trim().isEmpty || token.isEmpty) {
-      setState(() => _err = 'Both the URL and a token are needed.');
+      setState(() => _err = context.l10n.urlAndTokenNeeded);
       return;
     }
     final host = _mqttHost.text.trim();
@@ -100,12 +105,14 @@ class _SetupScreenState extends State<SetupScreen> {
       feedback: widget.initial?.feedback,
       overrides: widget.initial?.overrides,
       brightness: widget.initial?.brightness,
+      language: _language,
     );
     s.save().then((_) => widget.onSaved(s));
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final field = InputDecoration(
       filled: true,
       fillColor: Ns.surface,
@@ -120,8 +127,8 @@ class _SetupScreenState extends State<SetupScreen> {
         child: ListView(
           padding: const EdgeInsets.all(22),
           children: [
-            const Text(
-              'Connect to Home Assistant',
+            Text(
+              l.connectTitle,
               style: TextStyle(
                 color: Ns.text,
                 fontSize: 21,
@@ -129,14 +136,34 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Create a long-lived access token under your profile, Security, at the '
-              'bottom. It is stored on this panel only.',
+            Text(
+              l.connectHelp,
               style: TextStyle(color: Ns.muted, fontSize: 14, height: 1.45),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Home Assistant URL',
+            Text(
+              l.language,
+              style: const TextStyle(color: Ns.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              initialValue: _language,
+              decoration: field,
+              dropdownColor: Ns.surface,
+              items: [
+                DropdownMenuItem(value: '', child: Text(l.languageSystem)),
+                DropdownMenuItem(value: 'de', child: Text(l.languageGerman)),
+                DropdownMenuItem(value: 'en', child: Text(l.languageEnglish)),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _language = value);
+                widget.onLanguage?.call(value);
+              },
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l.homeAssistantUrl,
               style: TextStyle(color: Ns.muted, fontSize: 13),
             ),
             const SizedBox(height: 6),
@@ -147,9 +174,7 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              widget.initial == null
-                  ? 'Long-lived access token'
-                  : 'New token (leave empty to keep the current one)',
+              widget.initial == null ? l.accessToken : l.newAccessToken,
               style: const TextStyle(color: Ns.muted, fontSize: 13),
             ),
             const SizedBox(height: 6),
@@ -160,37 +185,29 @@ class _SetupScreenState extends State<SetupScreen> {
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Dashboard (url path, empty = default)',
+            Text(
+              l.dashboardPath,
               style: TextStyle(color: Ns.muted, fontSize: 13),
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _dash,
-              decoration: field.copyWith(hintText: 'e.g. nspanel'),
+              decoration: field.copyWith(hintText: l.dashboardHint),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Device name in Home Assistant',
-              style: TextStyle(color: Ns.muted, fontSize: 13),
-            ),
+            Text(l.deviceName, style: TextStyle(color: Ns.muted, fontSize: 13)),
             const SizedBox(height: 6),
             TextField(
               controller: _name,
-              decoration: field.copyWith(hintText: 'NSPanel Dining'),
+              decoration: field.copyWith(hintText: l.deviceNameHint),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'MQTT broker (host or host:port, empty = no device)',
-              style: TextStyle(color: Ns.muted, fontSize: 13),
-            ),
+            Text(l.mqttBroker, style: TextStyle(color: Ns.muted, fontSize: 13)),
             const SizedBox(height: 6),
             TextField(
               controller: _mqttHost,
               keyboardType: TextInputType.url,
-              decoration: field.copyWith(
-                hintText: 'e.g. 10.0.0.2 or homeassistant.local:1883',
-              ),
+              decoration: field.copyWith(hintText: l.mqttBrokerHint),
             ),
             const SizedBox(height: 12),
             Row(
@@ -198,7 +215,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 Expanded(
                   child: TextField(
                     controller: _mqttUser,
-                    decoration: field.copyWith(hintText: 'MQTT user'),
+                    decoration: field.copyWith(hintText: l.mqttUser),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -208,8 +225,8 @@ class _SetupScreenState extends State<SetupScreen> {
                     obscureText: true,
                     decoration: field.copyWith(
                       hintText: widget.initial?.mqttPass != null
-                          ? 'password (kept)'
-                          : 'MQTT password',
+                          ? l.mqttPasswordKept
+                          : l.mqttPassword,
                     ),
                   ),
                 ),
@@ -239,7 +256,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                 ),
                 onPressed: _save,
-                child: const Text('Connect'),
+                child: Text(l.connect),
               ),
             ),
             const SizedBox(height: 18),
@@ -249,8 +266,8 @@ class _SetupScreenState extends State<SetupScreen> {
               stream: Proximity.stream,
               builder: (_, snap) => Text(
                 snap.hasError
-                    ? 'No proximity sensor on this device.'
-                    : 'Proximity sensor now: ${snap.data?.toStringAsFixed(0) ?? '…'}',
+                    ? l.noProximitySensor
+                    : l.proximityNow(snap.data?.toStringAsFixed(0) ?? '…'),
                 style: const TextStyle(
                   color: Ns.muted,
                   fontSize: 13,
@@ -283,8 +300,9 @@ class _UpdateRow extends StatelessWidget {
       updater.status,
     ]),
     builder: (context, _) {
+      final l = context.l10n;
       final busy = updater.progress.value != null;
-      final status = updater.status.value;
+      final status = l.updateStatus(updater.status.value);
       return Row(
         children: [
           Expanded(
@@ -315,13 +333,13 @@ class _UpdateRow extends StatelessWidget {
                 ),
               ),
               onPressed: () => updater.install(),
-              child: Text('Update to ${updater.latest.value!.version}'),
+              child: Text(l.updateTo(updater.latest.value!.version)),
             )
           else if (!busy)
             TextButton(
               onPressed: () => updater.check(),
-              child: const Text(
-                'Check for updates',
+              child: Text(
+                l.checkUpdates,
                 style: TextStyle(color: Ns.muted, fontSize: 13),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/info_shell.dart';
 import '../ui/theme.dart';
 import '../util/color.dart';
@@ -19,10 +20,14 @@ class SensorsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ids = [for (final i in items) i.str('entity')].whereType<String>().toList();
+    final ids = [for (final i in items) i.str('entity')]
+        .whereType<String>()
+        .toList();
     final showIcons = config.boolOr('show_icons', true);
     return AnimatedBuilder(
-      animation: Listenable.merge([for (final id in ids) env.states.listen(id)]),
+      animation: Listenable.merge([
+        for (final id in ids) env.states.listen(id),
+      ]),
       builder: (context, _) => InfoShell(
         height: config.numOr('height', 130),
         accent: parseHex(config.str('accent')) ?? Ns.sky,
@@ -32,7 +37,7 @@ class SensorsCard extends StatelessWidget {
           children: [
             for (var i = 0; i < items.length; i++) ...[
               if (i > 0) const SizedBox(width: 10),
-              Expanded(child: _cell(items[i], showIcons)),
+              Expanded(child: _cell(context, items[i], showIcons)),
             ],
           ],
         ),
@@ -40,13 +45,17 @@ class SensorsCard extends StatelessWidget {
     );
   }
 
-  Widget _cell(CardConfig item, bool showIcons) {
+  Widget _cell(BuildContext context, CardConfig item, bool showIcons) {
     final id = item.str('entity') ?? '';
     final s = env.states.get(id);
     final broken = s == null || s.isBroken;
     final n = s?.numeric;
     final unit = item['unit'] != null ? item.str('unit')! : (s?.unit ?? '');
-    final text = broken ? '—' : (n == null ? s.state : fmt(n, item['decimals'] as int?));
+    final text = broken
+        ? '—'
+        : (n == null
+              ? context.l10n.statusWord(s.state)
+              : fmtLocale(context, n, item['decimals'] as int?));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
@@ -58,15 +67,23 @@ class SensorsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showIcons) ...[
-            Icon(mdi(item.str('icon') ?? s?.attr<String>('icon') ?? classIcon(s, id)), size: 22, color: Ns.muted),
+            Icon(
+              mdi(
+                item.str('icon') ?? s?.attr<String>('icon') ?? classIcon(s, id),
+              ),
+              size: 22,
+              color: Ns.muted,
+            ),
             const SizedBox(height: 6),
           ],
           BigValue(text, unit: broken ? '' : unit, size: 30),
           const SizedBox(height: 6),
-          Text(item.str('name') ?? friendlyName(s, id),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Ns.muted, fontSize: 13)),
+          Text(
+            item.str('name') ?? friendlyName(s, id),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Ns.muted, fontSize: 13),
+          ),
         ],
       ),
     );

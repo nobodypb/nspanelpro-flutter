@@ -3,6 +3,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/fill_card.dart';
 import '../ui/sheet.dart';
 import '../util/icons.dart';
@@ -117,13 +118,19 @@ class _LightCardState extends State<LightCard> with EchoMixin {
           value: on && caps.brightness ? ValueText('$pct', unit: '%') : null,
           title: c.titleOr(friendlyName(s, entity)),
           sub: broken
-              ? 'Unavailable'
-              : (on ? (caps.brightness ? 'On · $pct%' : 'On') : 'Off'),
+              ? context.l10n.unavailable
+              : (on
+                    ? (caps.brightness
+                          ? context.l10n.onPercent('$pct')
+                          : context.l10n.on)
+                    : context.l10n.off),
           chips: showPresets
               ? [
                   for (final p in presets.take(4))
                     ChipSpec(
-                      label: p.str('name') ?? '${p['brightness_pct']}%',
+                      label: c['presets'] is List
+                          ? p.str('name') ?? '${p['brightness_pct']}%'
+                          : context.l10n.defaultLightPreset(p.str('name')),
                       disabled: !caps.allowsPreset(s, p),
                       onTap: () => _applyPreset(p),
                     ),

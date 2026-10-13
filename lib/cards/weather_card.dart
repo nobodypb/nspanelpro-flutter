@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../config/dashboard.dart';
 import '../ha/connection.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/fill_card.dart';
 import '../ui/info_shell.dart';
 import '../ui/theme.dart';
@@ -10,17 +12,6 @@ import '../util/color.dart';
 import '../util/fmt.dart';
 import '../util/icons.dart';
 import 'env.dart';
-
-const _conditionLabels = {
-  'partlycloudy': 'Partly cloudy',
-  'clear-night': 'Clear',
-  'lightning-rainy': 'Thunder, rain',
-  'snowy-rainy': 'Sleet',
-  'windy-variant': 'Windy',
-  'pouring': 'Heavy rain',
-  'exceptional': 'Severe',
-};
-const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /// Current conditions off the entity; the forecast over its own websocket
 /// subscription (HA 2024.4+), with the old attribute as a fallback. The
@@ -38,6 +29,24 @@ class WeatherCard extends StatefulWidget {
 class _WeatherCardState extends State<WeatherCard> {
   CardConfig get c => widget.config;
   String get entity => c.str('entity') ?? '';
+
+  String _condition(String value) => switch (value) {
+    'sunny' => context.l10n.weatherSunny,
+    'clear-night' => context.l10n.weatherClear,
+    'cloudy' => context.l10n.weatherCloudy,
+    'fog' => context.l10n.weatherFog,
+    'hail' => context.l10n.weatherHail,
+    'lightning' => context.l10n.weatherLightning,
+    'lightning-rainy' => context.l10n.weatherThunderRain,
+    'partlycloudy' => context.l10n.weatherPartlyCloudy,
+    'pouring' => context.l10n.weatherPouring,
+    'rainy' => context.l10n.weatherRainy,
+    'snowy' => context.l10n.weatherSnowy,
+    'snowy-rainy' => context.l10n.weatherSleet,
+    'windy' || 'windy-variant' => context.l10n.weatherWindy,
+    'exceptional' => context.l10n.weatherSevere,
+    _ => capitalise(value.replaceAll('-', ' ')),
+  };
 
   List<dynamic>? _forecast;
   Future<void> Function()? _unsub;
@@ -66,14 +75,19 @@ class _WeatherCardState extends State<WeatherCard> {
     }
     _subscribing = true;
     try {
-      _unsub = await widget.env.conn.subscribe({
-        'type': 'weather/subscribe_forecast',
-        'forecast_type': c.str('forecast_type') ?? 'daily',
-        'entity_id': entity,
-      }, (ev) {
-        if (!mounted) return;
-        setState(() => _forecast = (ev as Map?)?['forecast'] as List? ?? const []);
-      });
+      _unsub = await widget.env.conn.subscribe(
+        {
+          'type': 'weather/subscribe_forecast',
+          'forecast_type': c.str('forecast_type') ?? 'daily',
+          'entity_id': entity,
+        },
+        (ev) {
+          if (!mounted) return;
+          setState(
+            () => _forecast = (ev as Map?)?['forecast'] as List? ?? const [],
+          );
+        },
+      );
     } catch (_) {
       // Older core: the attribute fallback below covers it.
     } finally {
@@ -91,18 +105,26 @@ class _WeatherCardState extends State<WeatherCard> {
         final unit = s?.attr<String>('temperature_unit') ?? '°';
         final bits = <String>[];
         if (s != null && s.state.isNotEmpty) {
-          bits.add(_conditionLabels[s.state] ?? capitalise(s.state.replaceAll('-', ' ')));
+          bits.add(_condition(s.state));
         }
         final hum = s?.numAttr('humidity');
-        if (hum != null) bits.add('${fmt(hum, 0)}%');
+        if (hum != null) bits.add('${fmtLocale(context, hum, 0)}%');
         final wind = s?.numAttr('wind_speed');
-        if (wind != null) bits.add('${fmt(wind, 0)} ${s?.attr<String>('wind_speed_unit') ?? ''}'.trim());
+        if (wind != null) {
+          bits.add(
+            '${fmtLocale(context, wind, 0)} ${s?.attr<String>('wind_speed_unit') ?? ''}'
+                .trim(),
+          );
+        }
 
-        final list = (c.boolOr('show_forecast', true)
-                ? (_forecast ?? (s?.attributes['forecast'] as List?) ?? const [])
-                : const [])
-            .take(c.intOr('forecast_count', 4).clamp(1, 5))
-            .toList();
+        final list =
+            (c.boolOr('show_forecast', true)
+                    ? (_forecast ??
+                          (s?.attributes['forecast'] as List?) ??
+                          const [])
+                    : const [])
+                .take(c.intOr('forecast_count', 4).clamp(1, 5))
+                .toList();
 
         return InfoShell(
           height: c.numOr('height', 240),
@@ -115,26 +137,46 @@ class _WeatherCardState extends State<WeatherCard> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconBox(mdi(c.str('icon') ?? weatherIcons[s?.state] ?? 'mdi:weather-cloudy')),
+                  IconBox(
+                    mdi(
+                      c.str('icon') ??
+                          weatherIcons[s?.state] ??
+                          'mdi:weather-cloudy',
+                    ),
+                  ),
                   const Spacer(),
-                  BigValue(temp == null ? '—' : fmt(temp, 0), unit: temp == null ? '' : unit),
+                  BigValue(
+                    temp == null ? '—' : fmtLocale(context, temp, 0),
+                    unit: temp == null ? '' : unit,
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(c.titleOr(friendlyName(s, entity)), maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
-                  Text(broken ? 'Unavailable' : bits.join(' · '),
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
+                  Text(
+                    c.titleOr(friendlyName(s, entity)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: nameStyle,
+                  ),
+                  Text(
+                    broken ? context.l10n.unavailable : bits.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: subStyle,
+                  ),
                   if (list.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    Row(children: [
-                      for (var i = 0; i < list.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 8),
-                        Expanded(child: _day(list[i], unit)),
+                    Row(
+                      children: [
+                        for (var i = 0; i < list.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          Expanded(child: _day(list[i], unit)),
+                        ],
                       ],
-                    ]),
+                    ),
                   ],
                 ],
               ),
@@ -151,7 +193,10 @@ class _WeatherCardState extends State<WeatherCard> {
     final hourly = c.str('forecast_type') == 'hourly';
     final label = when == null
         ? ''
-        : (hourly ? when.hour.toString().padLeft(2, '0') : _days[when.weekday - 1]);
+        : (hourly
+              ? when.hour.toString().padLeft(2, '0')
+              : DateFormat.E(Localizations.localeOf(context).toLanguageTag())
+                    .format(when));
     final hi = m['temperature'] as num?;
     final lo = m['templow'] as num?;
     return Container(
@@ -164,16 +209,32 @@ class _WeatherCardState extends State<WeatherCard> {
         children: [
           Text(label, style: const TextStyle(color: Ns.muted, fontSize: 12)),
           const SizedBox(height: 2),
-          Icon(mdi(weatherIcons[m['condition']] ?? 'mdi:weather-cloudy'), size: 22, color: Ns.text),
+          Icon(
+            mdi(weatherIcons[m['condition']] ?? 'mdi:weather-cloudy'),
+            size: 22,
+            color: Ns.text,
+          ),
           const SizedBox(height: 2),
           Text.rich(
-            TextSpan(children: [
-              TextSpan(text: fmt(hi, 0), style: const TextStyle(color: Ns.text, fontWeight: FontWeight.w700)),
-              if (lo != null)
+            TextSpan(
+              children: [
                 TextSpan(
-                    text: ' ${fmt(lo, 0)}',
-                    style: TextStyle(color: Ns.text.withValues(alpha: .55), fontWeight: FontWeight.w500)),
-            ]),
+                  text: fmtLocale(context, hi, 0),
+                  style: const TextStyle(
+                    color: Ns.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (lo != null)
+                  TextSpan(
+                    text: ' ${fmtLocale(context, lo, 0)}',
+                    style: TextStyle(
+                      color: Ns.text.withValues(alpha: .55),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
             style: const TextStyle(fontSize: 15, fontFeatures: Ns.tabular),
           ),
         ],

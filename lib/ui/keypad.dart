@@ -3,6 +3,8 @@ import 'navigation_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/panel_strings.dart';
+
 import 'theme.dart';
 
 /// The code sheet for the alarm card: masked dots, a 3×4 keypad (or a text
@@ -15,7 +17,7 @@ Future<void> showKeypadSheet(
   required String title,
   required Color accent,
   bool text = false,
-  String hint = 'Enter the code',
+  String? hint,
   required Future<bool> Function(String code) onSubmit,
 }) {
   return showPanelDialog(
@@ -37,7 +39,7 @@ Future<void> showKeypadSheet(
       title: title,
       accent: accent,
       text: text,
-      hint: hint,
+      hint: hint ?? ctx.l10n.enterCode,
       onSubmit: onSubmit,
     ),
   );
@@ -137,7 +139,7 @@ class _KeypadState extends State<_Keypad> {
                           ),
                         ),
                         Text(
-                          _wrong ? 'Wrong code' : widget.hint,
+                          _wrong ? context.l10n.wrongCode : widget.hint,
                           style: TextStyle(
                             color: _wrong ? Ns.danger : Ns.muted,
                             fontSize: 15,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
 import '../util/color.dart';
@@ -126,22 +127,22 @@ class _FanSheetState extends State<FanSheet> {
       final preset = state?.attr<String>('preset_mode');
       final on = state?.isOn ?? false;
       final status = !available
-          ? 'Unavailable'
+          ? context.l10n.unavailable
           : on
-          ? 'On'
-          : 'Off';
+          ? context.l10n.on
+          : context.l10n.off;
       final accent = parseHex(widget.config.str('accent')) ?? Ns.amber;
       final powerOn = caps.turnOn && (!on || !caps.turnOff);
       final chooser = _choosingPreset && caps.presets.isNotEmpty;
       final statusText = _failed
-          ? '$status · Command failed'
+          ? '$status · ${context.l10n.commandFailed}'
           : preset != null
           ? '$status · $preset'
           : status;
       final actions = <SheetAction>[
         if (chooser)
           SheetAction(
-            label: 'Back',
+            label: context.l10n.back,
             icon: Icons.arrow_back,
             close: false,
             run: () => setState(() => _choosingPreset = false),
@@ -149,7 +150,7 @@ class _FanSheetState extends State<FanSheet> {
         else ...[
           if (caps.presets.length > 3)
             SheetAction(
-              label: 'Presets',
+              label: context.l10n.presets,
               icon: Icons.tune,
               close: false,
               run: () => setState(() => _choosingPreset = true),
@@ -166,7 +167,7 @@ class _FanSheetState extends State<FanSheet> {
               ),
           if (caps.turnOn || caps.turnOff)
             SheetAction(
-              label: powerOn ? 'Turn on' : 'Turn off',
+              label: powerOn ? context.l10n.turnOn : context.l10n.turnOff,
               icon: Icons.power_settings_new,
               primary: true,
               close: false,
@@ -177,7 +178,7 @@ class _FanSheetState extends State<FanSheet> {
       ];
       return ControlSheet(
         title: chooser
-            ? 'Presets'
+            ? context.l10n.presets
             : widget.config.titleOr(friendlyName(state, entity)),
         state: statusText,
         stateColor: _failed ? Ns.danger : Ns.muted,

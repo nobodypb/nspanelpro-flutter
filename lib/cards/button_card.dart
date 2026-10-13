@@ -8,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/info_shell.dart';
 import '../ui/theme.dart';
 import '../util/color.dart';
@@ -210,9 +211,11 @@ class _ButtonCardState extends State<ButtonCard> {
     final showName = _showName(b.item);
 
     final label = b.armed
-        ? (b.item.str('confirm_text') ?? c.str('confirm_text') ?? 'Tap again')
+        ? (b.item.str('confirm_text') ??
+              c.str('confirm_text') ??
+              context.l10n.tapAgain)
         : (b.item.str('name') ??
-              (entity != null ? friendlyName(s, entity) : 'Run'));
+              (entity != null ? friendlyName(s, entity) : context.l10n.run));
     final icon = broken
         ? MdiIcons.alertCircleOutline
         : b.fired

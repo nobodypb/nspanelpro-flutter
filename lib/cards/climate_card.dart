@@ -3,6 +3,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/fill_card.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
@@ -51,10 +52,10 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
 
   List<CardConfig> get presets => c['presets'] is List
       ? c.maps('presets')
-      : const [
-          {'name': 'Eco', 'temperature': 17},
-          {'name': 'Day', 'temperature': 20.5},
-          {'name': 'Warm', 'temperature': 22},
+      : [
+          {'name': context.l10n.eco, 'temperature': 17},
+          {'name': context.l10n.day, 'temperature': 20.5},
+          {'name': context.l10n.warm, 'temperature': 22},
         ];
 
   /// The thermostat's own limits unless the config narrows them - worth
@@ -131,11 +132,22 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
     if (s == null) return '';
     final now = s.numAttr('current_temperature');
     final action = s.attr<String>('hvac_action');
-    final label = action != null
-        ? capitalise(action)
-        : (_hvacLabels[s.state] ?? s.state);
-    return now != null ? 'Now ${fmt(now, 1)}° · $label' : label;
+    final label = _modeLabel(action ?? s.state);
+    return now != null
+        ? context.l10n.nowTemperature(fmtLocale(context, now, 1), label)
+        : label;
   }
+
+  String _modeLabel(String mode) => switch (mode) {
+    'off' => context.l10n.off,
+    'heat' || 'heating' => context.l10n.heat,
+    'cool' || 'cooling' => context.l10n.cool,
+    'heat_cool' || 'auto' => context.l10n.auto,
+    'dry' || 'drying' => context.l10n.dryMode,
+    'fan_only' || 'fan' => context.l10n.fan,
+    'idle' => context.l10n.idle,
+    _ => capitalise(mode),
+  };
 
   void _openSheet(HaState? s) {
     final modes = (s?.attributes['hvac_modes'] as List? ?? const [])
@@ -154,7 +166,7 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
       actions: [
         for (final m in modes)
           SheetAction(
-            label: _hvacLabels[m]!,
+            label: _modeLabel(m),
             icon: mdi(_hvacIcons[m]),
             primary: s?.state == m,
             run: () => _call('set_hvac_mode', {'hvac_mode': m}),
@@ -196,9 +208,11 @@ class _ClimateCardState extends State<ClimateCard> with EchoMixin {
             ),
             on: !off && !broken,
           ),
-          value: broken || off ? null : ValueText(fmt(target, 1), unit: '°'),
+          value: broken || off
+              ? null
+              : ValueText(fmtLocale(context, target, 1), unit: '°'),
           title: c.titleOr(friendlyName(s, entity)),
-          sub: broken ? 'Unavailable' : _stateText(s),
+          sub: broken ? context.l10n.unavailable : _stateText(s),
           chips: showPresets
               ? [
                   for (final p in presets.take(4))

@@ -5,6 +5,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/page_scope.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
@@ -90,7 +91,7 @@ class _FrequentCardState extends State<FrequentCard> {
                     child: Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: Text(
-                        config.titleOr('Häufig genutzt'),
+                        config.titleOr(context.l10n.frequentlyUsed),
                         style: const TextStyle(
                           color: Ns.muted,
                           fontSize: 12,
@@ -108,10 +109,10 @@ class _FrequentCardState extends State<FrequentCard> {
               const SizedBox(height: 2),
               Expanded(
                 child: choices.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
-                          'Noch keine Nutzung',
-                          style: TextStyle(color: Ns.muted, fontSize: 14),
+                          context.l10n.noUsageYet,
+                          style: const TextStyle(color: Ns.muted, fontSize: 14),
                         ),
                       )
                     : LayoutBuilder(
@@ -359,19 +360,19 @@ class _FrequentCardState extends State<FrequentCard> {
       step: c.config.numOr('step', 5),
       actions: [
         SheetAction(
-          label: 'Open',
+          label: context.l10n.open,
           icon: MdiIcons.arrowUp,
           run: () => call('open_cover'),
         ),
         SheetAction(
-          label: 'Stop',
+          label: context.l10n.stop,
           icon: MdiIcons.stop,
           primary: true,
           close: false,
           run: () => call('stop_cover'),
         ),
         SheetAction(
-          label: 'Close',
+          label: context.l10n.close,
           icon: MdiIcons.arrowDown,
           run: () => call('close_cover'),
         ),
@@ -448,13 +449,13 @@ class _FrequentCardState extends State<FrequentCard> {
       actions: [
         if (s.supports(16))
           SheetAction(
-            label: 'Previous',
+            label: context.l10n.previous,
             icon: MdiIcons.skipPrevious,
             close: false,
             run: () => call('media_previous_track'),
           ),
         SheetAction(
-          label: s.state == 'playing' ? 'Pause' : 'Play',
+          label: s.state == 'playing' ? context.l10n.pause : context.l10n.play,
           icon: s.state == 'playing' ? MdiIcons.pause : MdiIcons.play,
           primary: true,
           close: false,
@@ -462,20 +463,20 @@ class _FrequentCardState extends State<FrequentCard> {
         ),
         if (s.supports(32))
           SheetAction(
-            label: 'Next',
+            label: context.l10n.next,
             icon: MdiIcons.skipNext,
             close: false,
             run: () => call('media_next_track'),
           ),
         if (s.supports(4096))
           SheetAction(
-            label: 'Stop',
+            label: context.l10n.stop,
             icon: MdiIcons.stop,
             run: () => call('media_stop'),
           )
         else if (s.supports(256))
           SheetAction(
-            label: 'Off',
+            label: context.l10n.off,
             icon: MdiIcons.power,
             run: () => call('turn_off'),
           ),

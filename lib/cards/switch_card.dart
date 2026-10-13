@@ -7,6 +7,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/info_shell.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
@@ -364,7 +365,7 @@ class _SwitchCardState extends State<SwitchCard> {
               ),
               const SizedBox(width: 4),
               Text(
-                broken ? '—' : (on ? 'An' : 'Aus'),
+                broken ? '—' : (on ? context.l10n.on : context.l10n.off),
                 style: TextStyle(
                   color: on ? accent : Ns.muted,
                   fontSize: 12,
@@ -398,8 +399,10 @@ class _SwitchCardState extends State<SwitchCard> {
     final showName = flag('show_name');
     final showState = flag('show_state');
     final state = broken
-        ? 'Unavailable'
-        : (on ? c.str('on_text') ?? 'On' : c.str('off_text') ?? 'Off');
+        ? context.l10n.unavailable
+        : (on
+              ? c.str('on_text') ?? context.l10n.on
+              : c.str('off_text') ?? context.l10n.off);
 
     final swap = sw.item.boolOr(
       'swap_press_actions',

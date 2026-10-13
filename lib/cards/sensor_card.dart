@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/fill_card.dart';
 import '../ui/info_shell.dart';
 import '../ui/theme.dart';
@@ -19,7 +20,10 @@ class SensorCard extends StatelessWidget {
   String get entity => config.str('entity') ?? '';
   String? get secondary => config.str('secondary');
 
-  bool get _hasBar => config.boolOr('bar', true) && config['min'] is num && config['max'] is num;
+  bool get _hasBar =>
+      config.boolOr('bar', true) &&
+      config['min'] is num &&
+      config['max'] is num;
 
   /// severity: [{above, color}] - last match wins, so the list reads in the
   /// order a person would say it.
@@ -28,7 +32,9 @@ class SensorCard extends StatelessWidget {
     Color? hit;
     for (final s in config.maps('severity')) {
       final above = s['above'];
-      if (above is num && n > above) hit = parseHex(s.str('color') ?? s.str('colour')) ?? hit;
+      if (above is num && n > above) {
+        hit = parseHex(s.str('color') ?? s.str('colour')) ?? hit;
+      }
     }
     return hit;
   }
@@ -37,14 +43,22 @@ class SensorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ids = [entity, ?secondary];
     return AnimatedBuilder(
-      animation: Listenable.merge([for (final id in ids) env.states.listen(id)]),
+      animation: Listenable.merge([
+        for (final id in ids) env.states.listen(id),
+      ]),
       builder: (context, _) {
         final s = env.states.get(entity);
         final broken = s == null || s.isBroken;
         final n = s?.numeric;
         final accent = _severity(n) ?? parseHex(config.str('accent')) ?? Ns.sky;
-        final unit = config['unit'] != null ? config.str('unit')! : (s?.unit ?? '');
-        final text = broken ? '—' : (n == null ? s.state : fmt(n, config['decimals'] as int?));
+        final unit = config['unit'] != null
+            ? config.str('unit')!
+            : (s?.unit ?? '');
+        final text = broken
+            ? '—'
+            : (n == null
+                  ? context.l10n.statusWord(s.state)
+                  : fmtLocale(context, n, config['decimals'] as int?));
 
         double? fill;
         if (_hasBar && !broken && n != null) {
@@ -54,8 +68,10 @@ class SensorCard extends StatelessWidget {
 
         final sec = secondary == null ? null : env.states.get(secondary!);
         final sub = broken
-            ? 'Unavailable'
-            : (sec != null ? '${friendlyName(sec, secondary!)} ${fmt(sec.numeric)}${sec.unit}' : '');
+            ? context.l10n.unavailable
+            : (sec != null
+                  ? '${friendlyName(sec, secondary!)} ${fmtLocale(context, sec.numeric)}${sec.unit}'
+                  : '');
 
         return InfoShell(
           height: config.numOr('height', 200),
@@ -66,15 +82,31 @@ class SensorCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconBox(mdi(config.str('icon') ?? s?.attr<String>('icon') ?? classIcon(s, entity))),
+              IconBox(
+                mdi(
+                  config.str('icon') ??
+                      s?.attr<String>('icon') ??
+                      classIcon(s, entity),
+                ),
+              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   BigValue(text, unit: broken ? '' : unit),
-                  Text(config.titleOr(friendlyName(s, entity)),
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
-                  if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
+                  Text(
+                    config.titleOr(friendlyName(s, entity)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: nameStyle,
+                  ),
+                  if (sub.isNotEmpty)
+                    Text(
+                      sub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: subStyle,
+                    ),
                 ],
               ),
             ],

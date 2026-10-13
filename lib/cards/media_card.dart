@@ -3,6 +3,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/fill_card.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
@@ -86,9 +87,14 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
 
   ({String top, String sub}) _lines(HaState? s) {
     final device = c.titleOr(friendlyName(s, entity));
-    if (s == null || s.isBroken) return (top: device, sub: 'Unavailable');
+    if (s == null || s.isBroken) {
+      return (top: device, sub: context.l10n.unavailable);
+    }
     if (_idle(s)) {
-      return (top: device, sub: s.state == 'off' ? 'Off' : 'Nothing playing');
+      return (
+        top: device,
+        sub: s.state == 'off' ? context.l10n.off : context.l10n.nothingPlaying,
+      );
     }
     final title = s.attr<String>('media_title');
     final top = title ?? device;
@@ -97,8 +103,15 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
         s.attr<String>('media_series_title') ??
         s.attr<String>('media_channel') ??
         s.attr<String>('media_album_name') ??
-        (title != null ? device : (s.state == 'paused' ? 'Paused' : 'Playing'));
-    return (top: top, sub: s.state == 'paused' ? 'Paused · $sub' : sub);
+        (title != null
+            ? device
+            : (s.state == 'paused'
+                  ? context.l10n.paused
+                  : context.l10n.playing));
+    return (
+      top: top,
+      sub: s.state == 'paused' ? context.l10n.pausedDetail(sub) : sub,
+    );
   }
 
   IconData _defaultIcon(HaState? s) {
@@ -124,13 +137,13 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
       actions: [
         if (s?.supports(_prev) ?? false)
           SheetAction(
-            label: 'Previous',
+            label: context.l10n.previous,
             icon: MdiIcons.skipPrevious,
             close: false,
             run: () => _call('media_previous_track'),
           ),
         SheetAction(
-          label: _playing(s) ? 'Pause' : 'Play',
+          label: _playing(s) ? context.l10n.pause : context.l10n.play,
           icon: _playing(s) ? MdiIcons.pause : MdiIcons.play,
           primary: true,
           close: false,
@@ -138,20 +151,20 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
         ),
         if (s?.supports(_next) ?? false)
           SheetAction(
-            label: 'Next',
+            label: context.l10n.next,
             icon: MdiIcons.skipNext,
             close: false,
             run: () => _call('media_next_track'),
           ),
         if (s?.supports(_stop) ?? false)
           SheetAction(
-            label: 'Stop',
+            label: context.l10n.stop,
             icon: MdiIcons.stop,
             run: () => _call('media_stop'),
           )
         else if (s?.supports(_turnOff) ?? false)
           SheetAction(
-            label: 'Off',
+            label: context.l10n.off,
             icon: MdiIcons.power,
             run: () => _call('turn_off'),
           ),

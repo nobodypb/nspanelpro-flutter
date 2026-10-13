@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/sheet.dart';
 import '../ui/light_track.dart';
 import '../ui/theme.dart';
@@ -219,11 +220,13 @@ class _LightSheetState extends State<LightSheet> {
   }
 
   String _semanticValue(LightChannel ch, double value) => switch (ch) {
-    LightChannel.hue => '${(value * 360).round() % 360} degrees',
+    LightChannel.hue => context.l10n.degrees('${(value * 360).round() % 360}'),
     LightChannel.temperature =>
       policy.range == null
-          ? 'Unknown'
-          : '${(policy.range!.min + value * (policy.range!.max - policy.range!.min)).round()} kelvin',
+          ? context.l10n.unknown
+          : context.l10n.kelvin(
+              '${(policy.range!.min + value * (policy.range!.max - policy.range!.min)).round()}',
+            ),
     _ => '${(value * 100).round()}%',
   };
   double _nextValue(LightChannel ch, double value, int direction) {
@@ -318,17 +321,17 @@ class _LightSheetState extends State<LightSheet> {
     }
     final on = s?.isOn ?? false;
     final status = !available
-        ? 'Unavailable'
+        ? context.l10n.unavailable
         : on
-        ? 'On'
+        ? context.l10n.on
         : hasLastValues
-        ? 'Off · last values'
-        : 'Off';
+        ? context.l10n.offLastValues
+        : context.l10n.off;
     final effect = displayAttributes['effect'] as String?;
     final actions = <SheetAction>[
       if (_chooser != null)
         SheetAction(
-          label: 'Back',
+          label: context.l10n.back,
           icon: Icons.arrow_back,
           close: false,
           run: () => _browse(null),
@@ -336,7 +339,7 @@ class _LightSheetState extends State<LightSheet> {
       else ...[
         if (p.white && p.color)
           SheetAction(
-            label: _white ? 'Colour' : 'White',
+            label: _white ? context.l10n.colour : context.l10n.white,
             icon: Icons.palette_outlined,
             close: false,
             enabled: _drag == null,
@@ -348,7 +351,7 @@ class _LightSheetState extends State<LightSheet> {
           ),
         if (controls.presets.isNotEmpty)
           SheetAction(
-            label: 'Presets',
+            label: context.l10n.presets,
             icon: Icons.list,
             close: false,
             enabled: _drag == null,
@@ -357,7 +360,7 @@ class _LightSheetState extends State<LightSheet> {
           ),
         if (_favorites.isNotEmpty)
           SheetAction(
-            label: 'Effects',
+            label: context.l10n.effects,
             icon: Icons.auto_awesome,
             close: false,
             enabled: _drag == null,
@@ -365,7 +368,7 @@ class _LightSheetState extends State<LightSheet> {
             run: () => _browse('Effects'),
           ),
         SheetAction(
-          label: on ? 'Turn off' : 'Turn on',
+          label: on ? context.l10n.turnOff : context.l10n.turnOn,
           icon: Icons.power_settings_new,
           primary: on,
           close: false,
@@ -393,10 +396,11 @@ class _LightSheetState extends State<LightSheet> {
                 Builder(
                   builder: (_) {
                     final isEffect = _chooser == 'Effects';
-                    final name =
-                        item.str('name') ??
-                        item.str('effect') ??
-                        '${item['brightness_pct']}%';
+                    final name = !isEffect && widget.config['presets'] is! List
+                        ? context.l10n.defaultLightPreset(item.str('name'))
+                        : item.str('name') ??
+                              item.str('effect') ??
+                              '${item['brightness_pct']}%';
                     final selected =
                         isEffect &&
                         (on || hasLastValues) &&
@@ -539,8 +543,13 @@ class _LightSheetState extends State<LightSheet> {
                                 ? 'sheet-increase'
                                 : 'sheet-decrease',
                           ),
-                          label:
-                              '${direction == 1 ? 'Increase' : 'Decrease'} ${_active.name}',
+                          label: direction == 1
+                              ? context.l10n.increaseChannel(
+                                  _channelLabel(_active),
+                                )
+                              : context.l10n.decreaseChannel(
+                                  _channelLabel(_active),
+                                ),
                           dimWhenDisabled: !available || !canStep(direction),
                           onTap:
                               contentEnabled &&
@@ -562,10 +571,13 @@ class _LightSheetState extends State<LightSheet> {
             ],
           );
     return ControlSheet(
-      title:
-          _chooser ?? widget.config.titleOr(friendlyName(s, controls.entity)),
+      title: _chooser == 'Effects'
+          ? context.l10n.effects
+          : _chooser == 'Presets'
+          ? context.l10n.presets
+          : widget.config.titleOr(friendlyName(s, controls.entity)),
       state: _error != null
-          ? '$status · $_error'
+          ? '$status · ${context.l10n.statusWord(_error!)}'
           : effect != null && _chooser == 'Effects'
           ? '$status · $effect'
           : status,
@@ -585,4 +597,11 @@ class _LightSheetState extends State<LightSheet> {
       actions: actions,
     );
   }
+
+  String _channelLabel(LightChannel channel) => switch (channel) {
+    LightChannel.brightness => context.l10n.brightness,
+    LightChannel.temperature => context.l10n.temperature,
+    LightChannel.hue => context.l10n.hue,
+    LightChannel.saturation => context.l10n.saturation,
+  };
 }

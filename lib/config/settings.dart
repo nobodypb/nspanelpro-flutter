@@ -20,10 +20,14 @@ class Settings {
     this.feedback,
     this.overrides,
     this.brightness,
+    this.language = '',
   });
 
   String url;
   String token;
+
+  /// Empty follows Android; otherwise an explicitly selected UI language.
+  String language;
 
   /// Panel-level screensaver settings from setup.json; a dashboard card
   /// overrides them when present.
@@ -97,6 +101,7 @@ class Settings {
   static const _kFeedback = 'feedback';
   static const _kOverrides = 'overrides';
   static const _kBrightness = 'brightness';
+  static const _kLanguage = 'language';
 
   static Map<String, dynamic>? _map(SharedPreferences p, String key) {
     final raw = p.getString(key);
@@ -166,6 +171,12 @@ class Settings {
                   ? (j['brightness'] as Map).cast<String, dynamic>()
                   : null)
             : current?.brightness,
+        language: switch (j['language']) {
+          'de' => 'de',
+          'en' => 'en',
+          '' => '',
+          _ => current?.language ?? '',
+        },
       );
       await s.save();
       await onLocalSettings?.call(Map<String, dynamic>.from(j));
@@ -195,6 +206,11 @@ class Settings {
       feedback: _map(p, _kFeedback),
       overrides: _map(p, _kOverrides),
       brightness: _map(p, _kBrightness),
+      language: switch (p.getString(_kLanguage)) {
+        'de' => 'de',
+        'en' => 'en',
+        _ => '',
+      },
     );
   }
 
@@ -205,6 +221,7 @@ class Settings {
     await p.setString(_kDash, dashboard);
     await p.setString(_kName, name);
     await p.setString(_kTts, ttsEngine);
+    await p.setString(_kLanguage, language);
     final maps = {
       _kSaver: screensaver,
       _kMqtt: mqtt,
@@ -241,6 +258,7 @@ class Settings {
     await p.remove(_kTts);
     await p.remove(_kOverrides);
     await p.remove(_kBrightness);
+    await p.remove(_kLanguage);
     await clearLocalSettings?.call();
   }
 
