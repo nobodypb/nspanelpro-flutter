@@ -77,7 +77,7 @@ class _FrequentCardState extends State<FrequentCard> {
         );
         return Container(
           height: height.toDouble(),
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
           decoration: BoxDecoration(
             color: Ns.surface,
             borderRadius: BorderRadius.circular(Ns.radius),
@@ -87,12 +87,15 @@ class _FrequentCardState extends State<FrequentCard> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      config.titleOr('Häufig genutzt'),
-                      style: const TextStyle(
-                        color: Ns.muted,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        config.titleOr('Häufig genutzt'),
+                        style: const TextStyle(
+                          color: Ns.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
@@ -102,7 +105,7 @@ class _FrequentCardState extends State<FrequentCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               Expanded(
                 child: choices.isEmpty
                     ? const Center(
