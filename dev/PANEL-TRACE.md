@@ -19,8 +19,11 @@ clears pending evidence. Returning to the model's rest band for 500 ms, a change
 direction or expired model-specific observations clears that candidate.
 
 This preserves the existing ambiguity: a very still weak approach may become
-the rest value after the chosen delay. A confirmed strong approach does not
-expire. Fixed and absolute detection do not use adaptive recovery.
+the rest value after the chosen delay. A continuously strong approach does not
+expire. A prior strong classification is released after two seconds of fresh,
+continuously non-strong samples; only then can a new full weak-recovery delay
+begin. Touch or sensor gaps clear the old candidate but allow a fresh candidate
+while proximity remains active. Fixed and absolute detection do not use adaptive recovery.
 
 `repetition/off_near` is diagnostic only: it counts similar weak entries within
 two seconds after OFF, up to 120 seconds apart. It does not suppress a wake or
