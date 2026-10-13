@@ -145,6 +145,10 @@ void main() {
       configs['button/abc123/settings_reset']!['command_topic'],
       'nspanel/abc123/settings_reset/set',
     );
+    expect(
+      configs['button/abc123/frequent_usage_reset']!['command_topic'],
+      'nspanel/abc123/frequent_usage_reset/set',
+    );
   });
 
   test(
@@ -203,6 +207,20 @@ void main() {
     bridge.setting('idle_timeout', '600');
     await pumpEventQueue();
     expect(broker.published['nspanel/abc123/idle_timeout'], '600');
+  });
+
+  test('usage reset ignores retained replay and unrelated payloads', () async {
+    bridge.start();
+    await pumpEventQueue();
+    broker.deliver(
+      'nspanel/abc123/frequent_usage_reset/set',
+      'PRESS',
+      retain: true,
+    );
+    broker.deliver('nspanel/abc123/frequent_usage_reset/set', 'OFF');
+    broker.deliver('nspanel/abc123/frequent_usage_reset/set', 'PRESS');
+    await pumpEventQueue();
+    expect(commands, ['setting frequent_usage_reset PRESS']);
   });
 
   test(

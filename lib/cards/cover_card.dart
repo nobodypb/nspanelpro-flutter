@@ -43,17 +43,20 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
     return s.state == 'open' ? 1 : 0;
   }
 
-  bool _moving(HaState? s) => s != null && (s.state == 'opening' || s.state == 'closing');
+  bool _moving(HaState? s) =>
+      s != null && (s.state == 'opening' || s.state == 'closing');
 
-  Future<void> _call(String service, [Map<String, dynamic>? data]) =>
-      widget.env.conn.callService('cover', service, {'entity_id': entity, ...?data});
+  Future<bool> _call(String service, [Map<String, dynamic>? data]) => widget
+      .env
+      .conn
+      .callService('cover', service, {'entity_id': entity, ...?data});
 
-  void _commit(double v, HaState? s) {
+  Future<bool> _commit(double v, HaState? s) {
     final pct = (v * 100).round();
     if (s != null && s.supports(_setPosition)) {
-      _call('set_cover_position', {'position': pct});
+      return _call('set_cover_position', {'position': pct});
     } else {
-      _call(pct > 50 ? 'open_cover' : 'close_cover');
+      return _call(pct > 50 ? 'open_cover' : 'close_cover');
     }
   }
 
@@ -61,7 +64,13 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
     final pos = (p['position'] as num?)?.toDouble();
     if (pos == null) return;
     holdLocal(pos / 100, echoMs);
-    _commit(pos / 100, s);
+    widget.env.trackCall(
+      context,
+      entity,
+      'nspanel-cover-card',
+      'tap',
+      () => _commit(pos / 100, s),
+    );
   }
 
   String _stateText(HaState? s, int pct) {
@@ -85,9 +94,23 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
       accent: parseHex(c.str('accent')) ?? Ns.sky,
       step: c.numOr('step', 5),
       actions: [
-        SheetAction(label: 'Open', icon: MdiIcons.arrowUp, run: () => _call('open_cover')),
-        SheetAction(label: 'Stop', icon: MdiIcons.stop, primary: true, close: false, run: () => _call('stop_cover')),
-        SheetAction(label: 'Close', icon: MdiIcons.arrowDown, run: () => _call('close_cover')),
+        SheetAction(
+          label: 'Open',
+          icon: MdiIcons.arrowUp,
+          run: () => _call('open_cover'),
+        ),
+        SheetAction(
+          label: 'Stop',
+          icon: MdiIcons.stop,
+          primary: true,
+          close: false,
+          run: () => _call('stop_cover'),
+        ),
+        SheetAction(
+          label: 'Close',
+          icon: MdiIcons.arrowDown,
+          run: () => _call('close_cover'),
+        ),
       ],
       onInput: (nv) => holdLocal(nv, echoMs),
       onCommit: (nv) {
@@ -105,10 +128,14 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
         final broken = s == null || s.isBroken;
         final v = display(_entityValue(s));
         final pct = (v * 100).round();
-        final showPresets = c.boolOr('show_presets', true) && presets.isNotEmpty;
-        final icon = c.str('icon') ??
+        final showPresets =
+            c.boolOr('show_presets', true) && presets.isNotEmpty;
+        final icon =
+            c.str('icon') ??
             s?.attr<String>('icon') ??
-            (pct >= 99 ? 'mdi:blinds-open' : (pct <= 0 ? 'mdi:blinds' : 'mdi:blinds-horizontal'));
+            (pct >= 99
+                ? 'mdi:blinds-open'
+                : (pct <= 0 ? 'mdi:blinds' : 'mdi:blinds-horizontal'));
 
         return FillCard(
           height: c.numOr('height', 200),
@@ -126,12 +153,32 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
           chips: showPresets
               ? [
                   for (final p in presets.take(4))
-                    ChipSpec(label: p.str('name') ?? '${p['position']}%', onTap: () => _applyPreset(p, s)),
+                    ChipSpec(
+                      label: p.str('name') ?? '${p['position']}%',
+                      onTap: () => _applyPreset(p, s),
+                    ),
                 ]
               : const [],
           // a tap while it is moving stops it; otherwise it toggles
-          onTap: () => _call(_moving(s) ? 'stop_cover' : 'toggle'),
-          onLongPress: c.str('long_press') == 'none' ? null : () => _openSheet(s),
+          onTap: () => widget.env.trackCall(
+            context,
+            entity,
+            'nspanel-cover-card',
+            'tap',
+            () => _call(_moving(s) ? 'stop_cover' : 'toggle'),
+          ),
+          onLongPress: c.str('long_press') == 'none'
+              ? null
+              : () {
+                  widget.env.recordUsage(
+                    context,
+                    entity,
+                    'nspanel-cover-card',
+                    'hold',
+                    result: 'detail',
+                  );
+                  _openSheet(s);
+                },
           onDragValue: (nv) {
             dragging = true;
             setLocal(nv);
@@ -139,7 +186,13 @@ class _CoverCardState extends State<CoverCard> with EchoMixin {
           onDragEnd: (nv) {
             dragging = false;
             holdLocal(nv, echoMs);
-            _commit(nv, s);
+            widget.env.trackCall(
+              context,
+              entity,
+              'nspanel-cover-card',
+              'drag',
+              () => _commit(nv, s),
+            );
           },
         );
       },

@@ -12,7 +12,13 @@ import 'echo.dart';
 import 'env.dart';
 
 // media_player supported_features
-const _pause = 1, _volumeSet = 4, _prev = 16, _next = 32, _turnOff = 256, _stop = 4096, _play = 16384;
+const _pause = 1,
+    _volumeSet = 4,
+    _prev = 16,
+    _next = 32,
+    _turnOff = 256,
+    _stop = 4096,
+    _play = 16384;
 
 /// Volume on the drag, transport on the face. Album art is a fixed 76px box
 /// and Flutter's image cache is keyed by URL, so an unchanged picture is never
@@ -32,21 +38,37 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
   int get echoMs => c.intOr('echo_ms', 1500);
   List<CardConfig> get presets => c.maps('presets');
 
-  Future<void> _call(String service, [Map<String, dynamic>? data]) =>
-      widget.env.conn.callService('media_player', service, {'entity_id': entity, ...?data});
+  Future<bool> _call(String service, [Map<String, dynamic>? data]) => widget
+      .env
+      .conn
+      .callService('media_player', service, {'entity_id': entity, ...?data});
 
-  bool _idle(HaState? s) => s == null || const {'off', 'idle', 'standby'}.contains(s.state);
+  bool _idle(HaState? s) =>
+      s == null || const {'off', 'idle', 'standby'}.contains(s.state);
   bool _playing(HaState? s) => s?.state == 'playing';
 
-  double _entityValue(HaState? s) => (s?.numAttr('volume_level') ?? 0).clamp(0.0, 1.0);
+  double _entityValue(HaState? s) =>
+      (s?.numAttr('volume_level') ?? 0).clamp(0.0, 1.0);
 
-  void _commit(double v, HaState? s) {
+  Future<bool> _commit(double v, HaState? s) {
     // Without VOLUME_SET there is nothing to commit to; the fill still moved.
-    if (s == null || !s.supports(_volumeSet)) return;
-    _call('volume_set', {'volume_level': (v * 100).round() / 100});
+    if (s == null || !s.supports(_volumeSet)) return Future.value(false);
+    return _call('volume_set', {'volume_level': (v * 100).round() / 100});
   }
 
   void _applyPreset(CardConfig p) {
+    if (p['source'] == null &&
+        p['media_content_id'] == null &&
+        p['volume_pct'] is! num) {
+      return;
+    }
+    widget.env.recordUsage(
+      context,
+      entity,
+      'nspanel-media-card',
+      'tap',
+      result: 'unknown',
+    );
     if (p['source'] != null) _call('select_source', {'source': p['source']});
     if (p['media_content_id'] != null) {
       _call('play_media', {
@@ -65,10 +87,13 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
   ({String top, String sub}) _lines(HaState? s) {
     final device = c.titleOr(friendlyName(s, entity));
     if (s == null || s.isBroken) return (top: device, sub: 'Unavailable');
-    if (_idle(s)) return (top: device, sub: s.state == 'off' ? 'Off' : 'Nothing playing');
+    if (_idle(s)) {
+      return (top: device, sub: s.state == 'off' ? 'Off' : 'Nothing playing');
+    }
     final title = s.attr<String>('media_title');
     final top = title ?? device;
-    final sub = s.attr<String>('media_artist') ??
+    final sub =
+        s.attr<String>('media_artist') ??
         s.attr<String>('media_series_title') ??
         s.attr<String>('media_channel') ??
         s.attr<String>('media_album_name') ??
@@ -98,7 +123,12 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
       step: c.numOr('step', 5),
       actions: [
         if (s?.supports(_prev) ?? false)
-          SheetAction(label: 'Previous', icon: MdiIcons.skipPrevious, close: false, run: () => _call('media_previous_track')),
+          SheetAction(
+            label: 'Previous',
+            icon: MdiIcons.skipPrevious,
+            close: false,
+            run: () => _call('media_previous_track'),
+          ),
         SheetAction(
           label: _playing(s) ? 'Pause' : 'Play',
           icon: _playing(s) ? MdiIcons.pause : MdiIcons.play,
@@ -107,11 +137,24 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
           run: () => _call('media_play_pause'),
         ),
         if (s?.supports(_next) ?? false)
-          SheetAction(label: 'Next', icon: MdiIcons.skipNext, close: false, run: () => _call('media_next_track')),
+          SheetAction(
+            label: 'Next',
+            icon: MdiIcons.skipNext,
+            close: false,
+            run: () => _call('media_next_track'),
+          ),
         if (s?.supports(_stop) ?? false)
-          SheetAction(label: 'Stop', icon: MdiIcons.stop, run: () => _call('media_stop'))
+          SheetAction(
+            label: 'Stop',
+            icon: MdiIcons.stop,
+            run: () => _call('media_stop'),
+          )
         else if (s?.supports(_turnOff) ?? false)
-          SheetAction(label: 'Off', icon: MdiIcons.power, run: () => _call('turn_off')),
+          SheetAction(
+            label: 'Off',
+            icon: MdiIcons.power,
+            run: () => _call('turn_off'),
+          ),
       ],
       onInput: (v) => holdLocal(v, echoMs),
       onCommit: (v) {
@@ -131,7 +174,9 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
         final v = display(_entityValue(s));
         final pct = (v * 100).round();
         final lines = _lines(s);
-        final art = c.boolOr('show_art', true) && !broken ? s.attr<String>('entity_picture') : null;
+        final art = c.boolOr('show_art', true) && !broken
+            ? s.attr<String>('entity_picture')
+            : null;
         final playing = _playing(s);
 
         Widget leading;
@@ -148,7 +193,10 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
             ),
           );
         } else {
-          leading = IconBox(mdi(c.str('icon') ?? s?.attr<String>('icon'), _defaultIcon(s)), on: !idle && !broken);
+          leading = IconBox(
+            mdi(c.str('icon') ?? s?.attr<String>('icon'), _defaultIcon(s)),
+            on: !idle && !broken,
+          );
         }
 
         return FillCard(
@@ -160,33 +208,80 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
           broken: broken,
           opaqueChips: true,
           leading: leading,
-          value: broken || idle || s.numAttr('volume_level') == null ? null : ValueText('$pct', unit: '%'),
+          value: broken || idle || s.numAttr('volume_level') == null
+              ? null
+              : ValueText('$pct', unit: '%'),
           title: lines.top,
           sub: lines.sub,
           chips: c.boolOr('show_transport', true)
               ? [
                   ChipSpec(
-                      label: '',
-                      icon: MdiIcons.skipPrevious,
-                      disabled: broken || !s.supports(_prev),
-                      onTap: () => _call('media_previous_track')),
+                    label: '',
+                    icon: MdiIcons.skipPrevious,
+                    disabled: broken || !s.supports(_prev),
+                    onTap: () => widget.env.trackCall(
+                      context,
+                      entity,
+                      'nspanel-media-card',
+                      'tap',
+                      () => _call('media_previous_track'),
+                    ),
+                  ),
                   ChipSpec(
-                      label: '',
-                      icon: playing ? MdiIcons.pause : MdiIcons.play,
-                      disabled: broken || !(s.supports(_play) || s.supports(_pause)),
-                      onTap: () => _call('media_play_pause')),
+                    label: '',
+                    icon: playing ? MdiIcons.pause : MdiIcons.play,
+                    disabled:
+                        broken || !(s.supports(_play) || s.supports(_pause)),
+                    onTap: () => widget.env.trackCall(
+                      context,
+                      entity,
+                      'nspanel-media-card',
+                      'tap',
+                      () => _call('media_play_pause'),
+                    ),
+                  ),
                   ChipSpec(
-                      label: '',
-                      icon: MdiIcons.skipNext,
-                      disabled: broken || !s.supports(_next),
-                      onTap: () => _call('media_next_track')),
+                    label: '',
+                    icon: MdiIcons.skipNext,
+                    disabled: broken || !s.supports(_next),
+                    onTap: () => widget.env.trackCall(
+                      context,
+                      entity,
+                      'nspanel-media-card',
+                      'tap',
+                      () => _call('media_next_track'),
+                    ),
+                  ),
                 ]
               : const [],
           chips2: c.boolOr('show_presets', true)
-              ? [for (final p in presets.take(4)) ChipSpec(label: p.str('name') ?? '', onTap: () => _applyPreset(p))]
+              ? [
+                  for (final p in presets.take(4))
+                    ChipSpec(
+                      label: p.str('name') ?? '',
+                      onTap: () => _applyPreset(p),
+                    ),
+                ]
               : const [],
-          onTap: () => _call('media_play_pause'),
-          onLongPress: c.str('long_press') == 'none' ? null : () => _openSheet(s),
+          onTap: () => widget.env.trackCall(
+            context,
+            entity,
+            'nspanel-media-card',
+            'tap',
+            () => _call('media_play_pause'),
+          ),
+          onLongPress: c.str('long_press') == 'none'
+              ? null
+              : () {
+                  widget.env.recordUsage(
+                    context,
+                    entity,
+                    'nspanel-media-card',
+                    'hold',
+                    result: 'detail',
+                  );
+                  _openSheet(s);
+                },
           onDragValue: (nv) {
             dragging = true;
             setLocal(nv);
@@ -194,7 +289,15 @@ class _MediaCardState extends State<MediaCard> with EchoMixin {
           onDragEnd: (nv) {
             dragging = false;
             holdLocal(nv, echoMs);
-            _commit(nv, s);
+            if (s?.supports(_volumeSet) ?? false) {
+              widget.env.trackCall(
+                context,
+                entity,
+                'nspanel-media-card',
+                'drag',
+                () => _commit(nv, s),
+              );
+            }
           },
         );
       },

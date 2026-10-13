@@ -34,6 +34,8 @@ import 'ui/theme.dart';
 import 'ui/warmup.dart';
 import 'update/updater.dart';
 import 'util/proximity.dart';
+import 'util/usage_candidates.dart';
+import 'util/usage_history.dart';
 
 /// Reported to Home Assistant as the device's sw_version. Keep in step with
 /// pubspec.yaml.
@@ -205,6 +207,7 @@ class _DashboardState extends State<Dashboard> {
   bool _warm = false;
   Timer? _warmTimer;
   late final HaStates _states = HaStates();
+  final UsageHistory _usage = UsageHistory();
   late final HaConnection _conn;
   late final PanelEnv _env;
   late final LocalExtensions _extensions;
@@ -293,6 +296,8 @@ class _DashboardState extends State<Dashboard> {
       cameraInteraction: _extensions.camera,
       extensionCardBuilder: _extensions.buildCard,
       navigation: _navigation,
+      usage: _usage,
+      usageCandidates: () => usageCandidates(_pages),
     );
 
     // Draw the last known dashboard immediately; HA's answer replaces it.
@@ -316,7 +321,13 @@ class _DashboardState extends State<Dashboard> {
     if (initialEvent != null) _navigationEvent(initialEvent);
     _conn.onReady = _loadConfig;
     _conn.status.addListener(_onStatus);
-    _states.lightMemory.load(widget.settings.url).then((_) {
+    Future.wait([
+      _states.lightMemory.load(widget.settings.url),
+      _usage.load(
+        Uri.parse(widget.settings.url).origin,
+        widget.settings.dashboard,
+      ),
+    ]).then((_) {
       if (mounted) _conn.start();
     });
     widget.display.controller.addListener(_displayChanged);
@@ -454,36 +465,40 @@ class _DashboardState extends State<Dashboard> {
 
   /// `index` is the page's place in the pager, or -1 for the warm-up's
   /// hidden copy, which must never count as on screen.
-  Widget _page(PanelPage p, {required bool animate, required int index}) =>
-      PageScope(
-        index: index,
-        shown: _shownPage,
-        awake: _awake,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < p.cards.length; i++) ...[
-              if (i > 0) const SizedBox(height: Ns.gap),
-              // cards rise into place, staggered, when a page first shows
-              if (p.cards.length == 1 &&
-                  cardType(p.cards[i]) == 'nspanel-camera-card')
-                Flexible(
-                  child: Enter(
-                    index: i,
-                    animate: animate,
-                    child: buildCard(p.cards[i], _env),
-                  ),
-                )
-              else
-                Enter(
-                  index: i,
-                  animate: animate,
-                  child: buildCard(p.cards[i], _env),
-                ),
-            ],
-          ],
-        ),
-      );
+  Widget _page(PanelPage p, {required bool animate, required int index}) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < p.cards.length; i++) ...[
+          if (i > 0) const SizedBox(height: Ns.gap),
+          // cards rise into place, staggered, when a page first shows
+          if (p.cards.length == 1 &&
+              cardType(p.cards[i]) == 'nspanel-camera-card')
+            Flexible(
+              child: Enter(
+                index: i,
+                animate: animate,
+                child: buildCard(p.cards[i], _env),
+              ),
+            )
+          else
+            Enter(
+              index: i,
+              animate: animate,
+              child: buildCard(p.cards[i], _env),
+            ),
+        ],
+      ],
+    );
+    return PageScope(
+      index: index,
+      shown: _shownPage,
+      awake: _awake,
+      child: p.cards.any((c) => cardType(c) == 'nspanel-frequent-card')
+          ? SingleChildScrollView(child: content)
+          : content,
+    );
+  }
 
   void _publishUpdate() {
     final u = widget.updater;
@@ -537,6 +552,9 @@ class _DashboardState extends State<Dashboard> {
     final n = num.tryParse(value);
     final on = value.toUpperCase() == 'ON';
     switch (object) {
+      case 'frequent_usage_reset':
+        _usage.reset();
+        return;
       case 'settings_reset':
         st.overrides = null;
       case 'idle_timeout' when n != null:
@@ -645,6 +663,7 @@ class _DashboardState extends State<Dashboard> {
     _unsubLovelace?.call();
     _conn.dispose();
     _states.lightMemory.dispose();
+    _usage.dispose();
     super.dispose();
   }
 

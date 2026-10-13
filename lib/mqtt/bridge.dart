@@ -340,6 +340,15 @@ class PanelBridge {
         'icon': 'mdi:restore',
         ...conf,
       },
+      'button/$deviceId/frequent_usage_reset': {
+        'name': 'Reset tile usage history',
+        'unique_id': 'nspanel_${deviceId}_frequent_usage_reset',
+        'command_topic': '$base/frequent_usage_reset/set',
+        'availability_topic': availabilityTopic,
+        'device': _device,
+        'icon': 'mdi:history',
+        ...conf,
+      },
     };
   }
 
@@ -386,6 +395,11 @@ class PanelBridge {
       '$base/settings_reset/set',
       (_, _) => onSetting?.call('settings_reset', 'PRESS'),
     );
+    mqtt.subscribe('$base/frequent_usage_reset/set', (_, value) {
+      if (value.trim().toUpperCase() == 'PRESS') {
+        onSetting?.call('frequent_usage_reset', 'PRESS');
+      }
+    }, ignoreRetained: true);
     // The notify entity sends the message text. Anything that names audio is
     // played - a URL, an HA path like /local/x.mp3, a media-source:// id from
     // HA's media browser, or a built-in `sound:doorbell` - and anything else
