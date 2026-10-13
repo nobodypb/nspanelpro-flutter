@@ -494,9 +494,7 @@ class _DashboardState extends State<Dashboard> {
       index: index,
       shown: _shownPage,
       awake: _awake,
-      child: p.cards.any((c) => cardType(c) == 'nspanel-frequent-card')
-          ? SingleChildScrollView(child: content)
-          : content,
+      child: content,
     );
   }
 
