@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nspanel_app/local/doorbird/extension.dart';
+import 'package:nspanel_app/l10n/app_localizations.dart';
 import 'package:nspanel_app/cards/camera_card.dart';
 import 'package:nspanel_app/cards/env.dart';
 import 'package:nspanel_app/config/settings.dart';
@@ -34,6 +35,9 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: Builder(
             builder: (context) =>
                 extension.build(context, config, const Text('Still image'))!,
@@ -92,6 +96,9 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('de'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: PageScope(
           index: 0,
           shown: shown,
@@ -170,6 +177,9 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
+            locale: const Locale('de'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: Scaffold(
               body: Padding(
                 padding: const EdgeInsets.all(12),
@@ -261,6 +271,9 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: Scaffold(
             body: Padding(
               padding: const EdgeInsets.all(12),
@@ -373,6 +386,9 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('de'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(12),
@@ -442,6 +458,9 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('de'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: CameraCard(
             config: {...config, 'height': 444},
@@ -496,6 +515,9 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
+            locale: const Locale('de'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: PageScope(
               index: 0,
               shown: shown,

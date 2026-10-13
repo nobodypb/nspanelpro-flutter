@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/panel_strings.dart';
 import 'package:flutter/services.dart';
 
 import '../util/color.dart';
@@ -178,11 +179,11 @@ class _FillCardState extends State<FillCard> {
                 ),
               ),
               if (widget.broken)
-                const Positioned(
+                Positioned(
                   top: 12,
                   right: 14,
-                  child: Text('OFFLINE',
-                      style: TextStyle(
+                  child: Text(context.l10n.offline,
+                      style: const TextStyle(
                           color: Ns.danger, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1)),
                 ),
               LayoutBuilder(builder: (context, constraints) {

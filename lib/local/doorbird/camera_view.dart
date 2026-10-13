@@ -2,6 +2,7 @@ import 'package:doorbird_intercom/doorbird_intercom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../l10n/panel_strings.dart';
 import '../../ui/page_scope.dart';
 import '../../ui/sheet.dart';
 import '../../ui/theme.dart';
@@ -104,7 +105,7 @@ class _CameraViewState extends State<IntercomCameraView> {
     (_) => ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) => ControlSheet(
-        title: 'Lautstärke',
+        title: context.l10n.doorVolume,
         state: 'DoorBird',
         value: widget.controller.volume,
         accent: Ns.violet,
@@ -122,14 +123,14 @@ class _CameraViewState extends State<IntercomCameraView> {
     _doorDialog = true;
     var sent = false;
     var pending = false;
-    var status = 'Nur nach Bestätigung';
+    var status = context.l10n.doorConfirmRequired;
     var failed = false;
     try {
       await showControlSheetBuilder(
         context,
         (_) => StatefulBuilder(
           builder: (context, update) => ControlSheet(
-            title: 'Türsummer',
+            title: context.l10n.doorBuzzer,
             state: status,
             stateColor: failed ? Ns.danger : Ns.muted,
             value: 0,
@@ -137,17 +138,20 @@ class _CameraViewState extends State<IntercomCameraView> {
             fromTop: false,
             step: 1,
             showLevel: false,
-            body: const Center(
+            body: Center(
               child: Text(
-                'Türsummer an der Eingangstür auslösen?',
+                context.l10n.doorConfirmPrompt,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Ns.text, fontSize: 26),
+                style: const TextStyle(color: Ns.text, fontSize: 26),
               ),
             ),
             actions: [
-              SheetAction(label: sent ? 'Schließen' : 'Abbrechen', run: () {}),
               SheetAction(
-                label: 'Auslösen',
+                label: sent ? context.l10n.close : context.l10n.doorCancel,
+                run: () {},
+              ),
+              SheetAction(
+                label: context.l10n.doorSend,
                 icon: Icons.lock_open,
                 primary: true,
                 close: false,
@@ -157,7 +161,7 @@ class _CameraViewState extends State<IntercomCameraView> {
                   update(() {
                     pending = true;
                     sent = true;
-                    status = 'Wird gesendet …';
+                    status = context.l10n.doorSending;
                   });
                   var ok = false;
                   try {
@@ -172,8 +176,8 @@ class _CameraViewState extends State<IntercomCameraView> {
                       pending = false;
                       failed = !ok;
                       status = ok
-                          ? 'Befehl gesendet'
-                          : 'Ergebnis unklar – Tür prüfen';
+                          ? context.l10n.doorSent
+                          : context.l10n.doorUncertain;
                     });
                   }
                 },
@@ -217,6 +221,22 @@ class _CameraViewState extends State<IntercomCameraView> {
     super.dispose();
   }
 
+  String _errorMessage(String error) => switch (error) {
+    'permission' => context.l10n.doorErrPermission,
+    'authentication' => context.l10n.doorErrAuthentication,
+    'certificate' => context.l10n.doorErrCertificate,
+    'locked' => context.l10n.doorErrLocked,
+    'configuration' => context.l10n.doorErrConfiguration,
+    'busy' => context.l10n.doorErrBusy,
+    'timeout' => context.l10n.doorErrTimeout,
+    'video' => context.l10n.doorErrVideo,
+    'audio_focus' => context.l10n.doorErrAudioFocus,
+    'audio_device' => context.l10n.doorErrAudioDevice,
+    'audio_response' => context.l10n.doorErrAudioResponse,
+    'session_expired' => context.l10n.doorErrSessionExpired,
+    _ => context.l10n.doorErrConnection,
+  };
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.controller,
@@ -241,26 +261,26 @@ class _CameraViewState extends State<IntercomCameraView> {
             IntercomState.muted,
           }.contains(c.state);
       final state = error != null
-          ? intercomMessage(error)
+          ? _errorMessage(error)
           : _starting || active && c.state == IntercomState.opening
-          ? 'Verbinden · Mikrofon aus'
+          ? context.l10n.doorConnecting
           : !active
-          ? 'Standbild · Mikrofon aus'
+          ? context.l10n.doorStill
           : switch (c.state) {
-              IntercomState.connecting => 'Gespräch verbinden · Mikrofon aus',
-              IntercomState.talking => 'Gespräch · Mikrofon an',
-              IntercomState.muted => 'Gespräch · Mikrofon aus',
-              IntercomState.ending => 'Beenden · Mikrofon aus',
+              IntercomState.connecting => context.l10n.doorCallConnecting,
+              IntercomState.talking => context.l10n.doorTalking,
+              IntercomState.muted => context.l10n.doorMuted,
+              IntercomState.ending => context.l10n.doorEnding,
               _ =>
                 c.videoState == IntercomVideoState.live
-                    ? 'Live · Hören · Mikrofon aus'
-                    : 'Hören · Mikrofon aus',
+                    ? context.l10n.doorLiveListen
+                    : context.l10n.doorListen,
             };
       final videoNote =
           active && ready && c.videoState != IntercomVideoState.live
           ? c.videoState == IntercomVideoState.reconnecting
-                ? 'Video verbindet erneut …'
-                : 'Video wird verbunden …'
+                ? context.l10n.doorVideoReconnecting
+                : context.l10n.doorVideoConnecting
           : null;
       final hasVideo =
           active &&
@@ -318,7 +338,9 @@ class _CameraViewState extends State<IntercomCameraView> {
             child: Row(
               children: [
                 _button(
-                  active || _starting ? 'Beenden' : 'Live',
+                  active || _starting
+                      ? context.l10n.doorEnd
+                      : context.l10n.doorLive,
                   active || _starting ? Icons.stop : Icons.videocam,
                   active || _starting
                       ? () {
@@ -332,7 +354,7 @@ class _CameraViewState extends State<IntercomCameraView> {
                 ),
                 const SizedBox(width: SheetMetrics.actionGap),
                 _button(
-                  speaking ? 'Stumm' : 'Sprechen',
+                  speaking ? context.l10n.doorMute : context.l10n.doorSpeak,
                   speaking ? Icons.mic_off : Icons.mic,
                   speaking
                       ? c.mute
@@ -343,29 +365,37 @@ class _CameraViewState extends State<IntercomCameraView> {
                 const SizedBox(width: SheetMetrics.actionGap),
                 if (widget.openDoor != null) ...[
                   _button(
-                    'Lautstärke',
+                    context.l10n.doorVolume,
                     Icons.volume_up,
                     ready ? _volume : null,
                   ),
                   const SizedBox(width: SheetMetrics.actionGap),
-                  _button('Türsummer', Icons.lock_open, _confirmDoor),
+                  _button(
+                    context.l10n.doorBuzzer,
+                    Icons.lock_open,
+                    _confirmDoor,
+                  ),
                 ] else ...[
                   _button(
-                    'Leiser',
+                    context.l10n.doorQuieter,
                     Icons.remove,
                     ready && c.volume > 0
                         ? () => c.setVolume(c.volume - .05)
                         : null,
-                    hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
+                    hint: context.l10n.doorVolumePercent(
+                      '${(c.volume * 100).round()}',
+                    ),
                   ),
                   const SizedBox(width: SheetMetrics.actionGap),
                   _button(
-                    'Lauter',
+                    context.l10n.doorLouder,
                     Icons.add,
                     ready && c.volume < 1
                         ? () => c.setVolume(c.volume + .05)
                         : null,
-                    hint: 'Lautstärke ${(c.volume * 100).round()} Prozent',
+                    hint: context.l10n.doorVolumePercent(
+                      '${(c.volume * 100).round()}',
+                    ),
                   ),
                 ],
               ],

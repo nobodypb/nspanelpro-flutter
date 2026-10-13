@@ -8,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/page_scope.dart';
 import '../ui/theme.dart';
 import 'env.dart';
@@ -208,10 +209,10 @@ class _CameraCardState extends State<CameraCard> {
                         const SizedBox(height: 8),
                         Text(
                           gone
-                              ? 'Camera unavailable'
+                              ? context.l10n.cameraUnavailable
                               : _fails >= 3
-                              ? 'No picture'
-                              : 'Loading…',
+                              ? context.l10n.noPicture
+                              : context.l10n.loading,
                           style: const TextStyle(color: Ns.muted, fontSize: 15),
                         ),
                       ],

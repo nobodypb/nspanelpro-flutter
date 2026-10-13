@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../l10n/panel_strings.dart';
+
 import 'package:ha_companion_handoff/ha_companion_handoff.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -119,8 +122,7 @@ class CompanionCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                controller.error ??
-                    'HA-Wechsel auf diesem Gerät nicht verfügbar',
+                controller.error ?? context.l10n.companionUnavailable,
                 style: TextStyle(
                   color: controller.error == null ? Ns.muted : Ns.danger,
                   fontSize: 14,

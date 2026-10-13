@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/panel_strings.dart';
+
 import '../config/dashboard.dart';
 import '../ui/theme.dart';
 import 'alarm_card.dart';
@@ -86,7 +88,7 @@ class UnsupportedCard extends StatelessWidget {
       border: Border.all(color: Ns.danger.withValues(alpha: .5)),
     ),
     child: Text(
-      'Not rendered here: $type',
+      context.l10n.unsupportedCard(type),
       style: const TextStyle(color: Ns.danger, fontSize: 14, height: 1.4),
     ),
   );

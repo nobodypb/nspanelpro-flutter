@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/dashboard.dart';
 import '../ha/states.dart';
+import '../l10n/panel_strings.dart';
 import '../ui/sheet.dart';
 import '../ui/theme.dart';
 import '../util/color.dart';
@@ -58,15 +59,15 @@ class _SwitchSheetState extends State<SwitchSheet> {
       final available = s != null && !s.isBroken;
       final on = s?.isOn ?? false;
       final state = !available
-          ? 'Unavailable'
+          ? context.l10n.unavailable
           : _controllable
           ? (on
-                ? widget.config.str('on_text') ?? 'On'
-                : widget.config.str('off_text') ?? 'Off')
+                ? widget.config.str('on_text') ?? context.l10n.on
+                : widget.config.str('off_text') ?? context.l10n.off)
           : s.state;
       return ControlSheet(
         title: widget.config.titleOr(friendlyName(s, entity)),
-        state: _failed ? '$state · Command failed' : state,
+        state: _failed ? '$state · ${context.l10n.commandFailed}' : state,
         value: 0,
         accent: parseHex(widget.config.str('accent')) ?? Ns.amber,
         showLevel: false,
@@ -76,7 +77,7 @@ class _SwitchSheetState extends State<SwitchSheet> {
         actions: [
           if (_controllable)
             SheetAction(
-              label: on ? 'Turn off' : 'Turn on',
+              label: on ? context.l10n.turnOff : context.l10n.turnOn,
               icon: Icons.power_settings_new,
               primary: true,
               close: false,

@@ -3,6 +3,8 @@ import 'navigation_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/panel_strings.dart';
+
 import '../util/color.dart';
 import 'theme.dart';
 
@@ -202,7 +204,7 @@ class _SheetState extends State<ControlSheet> {
                   ),
                   SheetButton(
                     key: const ValueKey('sheet-close'),
-                    label: 'Close',
+                    label: context.l10n.close,
                     size: SheetMetrics.closeSize,
                     onTap: () => Navigator.of(context).pop(),
                     child: const Icon(Icons.close, color: Ns.text, size: 26),
@@ -338,7 +340,7 @@ class _SheetState extends State<ControlSheet> {
                               Expanded(
                                 child: SheetButton(
                                   key: const ValueKey('sheet-increase'),
-                                  label: 'Increase',
+                                  label: context.l10n.increase,
                                   onTap: widget.enabled && _v < 1
                                       ? () => _stepBy(widget.step)
                                       : null,
@@ -353,7 +355,7 @@ class _SheetState extends State<ControlSheet> {
                               Expanded(
                                 child: SheetButton(
                                   key: const ValueKey('sheet-decrease'),
-                                  label: 'Decrease',
+                                  label: context.l10n.decrease,
                                   onTap: widget.enabled && _v > 0
                                       ? () => _stepBy(-widget.step)
                                       : null,
