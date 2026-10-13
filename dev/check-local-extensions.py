@@ -7,7 +7,8 @@ root = Path(__file__).resolve().parents[1]
 package = root / 'packages/doorbird_intercom'
 errors = []
 for path in (root / 'lib').rglob('*.dart'):
-    if path.is_relative_to(root / 'lib/local'):
+    # Generated catalogs contain user-facing names for local features, not code.
+    if path.is_relative_to(root / 'lib/local') or path.is_relative_to(root / 'lib/l10n'):
         continue
     source = path.read_text()
     if re.search(r'doorbird|intercom|ha_companion|companion_handoff|nspanel-ha-app', source, re.I):
