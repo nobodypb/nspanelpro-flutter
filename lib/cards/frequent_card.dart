@@ -90,9 +90,9 @@ class _FrequentCardState extends State<FrequentCard> {
                     child: Text(
                       config.titleOr('Häufig genutzt'),
                       style: const TextStyle(
-                        color: Ns.text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        color: Ns.muted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
